@@ -1,11 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  setClubSession,
-  getAllClubs,
-  migrateUsersToClubSoret,
-} from "@/app/actions";
+import { setClubSession, getAllClubs } from "@/app/actions";
 import { Loader2, Plus, Building2, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -18,7 +14,6 @@ export default function ClubSelector({
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newClubName, setNewClubName] = useState("");
-  const [migrating, setMigrating] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -71,30 +66,6 @@ export default function ClubSelector({
     setLoading(false);
   }
 
-  async function handleMigrate() {
-    setMigrating(true);
-    try {
-      await migrateUsersToClubSoret();
-      // Reload clubs list first
-      const updatedClubs = await getAllClubs();
-      setClubs(updatedClubs || []);
-      // Find and select club soret after migration
-      const clubSoret = updatedClubs?.find((c) => c.name === "club soret");
-      if (clubSoret) {
-        await setClubSession(clubSoret._id);
-        router.refresh();
-      } else {
-        alert("כל השחקנים הועברו לקלאב 'club soret'");
-        router.refresh();
-      }
-    } catch (error) {
-      console.error("Error migrating:", error);
-      alert("שגיאה בהעברת שחקנים");
-    } finally {
-      setMigrating(false);
-    }
-  }
-
   if (loading && clubs.length === 0) {
     return (
       <div className="glass-card p-6 rounded-2xl">
@@ -123,20 +94,9 @@ export default function ClubSelector({
         </div>
       ) : (
         <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/50 rounded-lg">
-          <p className="text-amber-400 text-right font-medium mb-3">
+          <p className="text-amber-400 text-right font-medium">
             אין קלאב פעיל. בחר קלאב או צור חדש
           </p>
-          <button
-            onClick={handleMigrate}
-            disabled={migrating}
-            className="w-full bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
-            {migrating ? (
-              <Loader2 className="animate-spin mx-auto" />
-            ) : (
-              "העבר את כל השחקנים לקלאב 'club soret'"
-            )}
-          </button>
         </div>
       )}
 
