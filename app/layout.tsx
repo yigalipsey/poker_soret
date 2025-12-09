@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { getActiveGame } from "./actions";
 
+export const dynamic = "force-dynamic";
+
 const heebo = Heebo({ subsets: ["hebrew", "latin"] });
 
 export const metadata: Metadata = {
@@ -29,7 +31,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const activeGame = await getActiveGame();
+  let activeGame = null;
+  try {
+    activeGame = await getActiveGame();
+  } catch (error) {
+    // אם אין חיבור למסד הנתונים (למשל בזמן build), נמשיך ללא activeGame
+    console.error("Failed to get active game:", error);
+  }
 
   return (
     <html lang="he" dir="rtl">

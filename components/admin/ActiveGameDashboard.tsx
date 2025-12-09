@@ -796,9 +796,7 @@ export default function ActiveGameDashboard({ game }: { game: any }) {
                 const playersWithoutCashOut = game.players.filter((p: any) => {
                   if (p.isCashedOut) return false;
                   const cashOut = cashOuts[p.userId._id];
-                  return (
-                    cashOut === undefined || cashOut === null
-                  );
+                  return cashOut === undefined || cashOut === null;
                 });
 
                 if (playersWithoutCashOut.length > 0) {

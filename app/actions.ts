@@ -185,8 +185,7 @@ export async function endGame(
   cashOutData: Record<string, number>
 ) {
   await connectDB();
-  const game = await GameSession.findById(gameId)
-    .populate("players.userId");
+  const game = await GameSession.findById(gameId).populate("players.userId");
   if (!game) throw new Error("Game not found");
 
   // חישוב סך הקופה
@@ -202,10 +201,7 @@ export async function endGame(
     const playerId = player.userId.toString();
     const cashOut = cashOutData[playerId];
 
-    if (
-      !player.isCashedOut &&
-      (cashOut === undefined || cashOut === null)
-    ) {
+    if (!player.isCashedOut && (cashOut === undefined || cashOut === null)) {
       // לא הזינו עבורו ערך
     }
   });
@@ -399,8 +395,7 @@ export async function cashOutPlayer(
 
 export async function calculateSettlementAction(gameId: string) {
   await connectDB();
-  const game = await GameSession.findById(gameId)
-    .populate("players.userId");
+  const game = await GameSession.findById(gameId).populate("players.userId");
   if (!game) throw new Error("Game not found");
 
   // בדיקה שכל השחקנים יש להם cashOut (יכול להיות 0 אם הפסיד הכל)
