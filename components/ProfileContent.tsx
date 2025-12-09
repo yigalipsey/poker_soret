@@ -18,9 +18,11 @@ import {
 export default function ProfileContent({
   currentUser,
   userClubs,
+  hasClubSession,
 }: {
   currentUser: any;
   userClubs: any[];
+  hasClubSession: boolean;
 }) {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
@@ -122,6 +124,42 @@ export default function ProfileContent({
     }
   }
 
+  // אם אין club_session - צריך להיכנס למועדון תחילה
+  if (!hasClubSession) {
+    return (
+      <div className="min-h-screen pb-24 px-4 pt-4 max-w-md mx-auto">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gradient tracking-tight text-right">
+            אזור אישי
+          </h1>
+          <p className="text-slate-400 text-sm mt-2 text-right">
+            ניהול פרטים אישיים והגדרות
+          </p>
+        </header>
+
+        <div className="glass-card p-8 rounded-2xl">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Building2 className="w-8 h-8 text-amber-500" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-200 mb-2">
+              נא להיכנס למועדון תחילה
+            </h2>
+            <p className="text-slate-400 text-sm mb-6">
+              כדי לגשת לפרופיל, יש להיכנס למועדון תחילה מהדף הראשי.
+            </p>
+            <a
+              href="/"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition"
+            >
+              חזור לדף הראשי
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // אם אין משתמש מחובר - רק טופס התחברות
   if (!currentUser) {
     return (
@@ -144,7 +182,7 @@ export default function ProfileContent({
               אין משתמש מחובר
             </h2>
             <p className="text-slate-400 text-sm mb-6">
-              כדי לראות את הפרופיל שלך, יש להתחבר כיוזר (שחקן).
+              כדי לראות את הפרופיל שלך, יש להתחבר כיוזר (שחקן) מהמועדון הנוכחי.
             </p>
           </div>
 

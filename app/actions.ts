@@ -28,14 +28,35 @@ export async function createUser(
   password?: string
 ) {
   await connectDB();
+
+  // אם זה לא מנהל, חייב להיות clubId
+  if (!isAdmin && !clubId) {
+    throw new Error("נא לבחור קלאב לפני יצירת שחקן");
+  }
+
+  // בדוק אם כבר קיים משתמש עם אותו שם באותו קלאב
+  if (clubId) {
+    const existingUser = await User.findOne({
+      name: name.trim(),
+      clubId: clubId,
+    });
+
+    if (existingUser) {
+      throw new Error(`שחקן עם השם "${name.trim()}" כבר קיים בקלאב זה`);
+    }
+  }
+
   const userData: any = {
-    name,
+    name: name.trim(),
     isAdmin,
     password: password || "1234",
   };
+
+  // תמיד להגדיר clubId אם זה לא מנהל
   if (clubId) {
     userData.clubId = clubId;
   }
+
   const user = await User.create(userData);
   revalidatePath("/");
   revalidatePath("/admin");
@@ -685,10 +706,27 @@ export async function setPlayerPassword(userId: string, password: string) {
 
 export async function playerLogin(name: string, password: string) {
   await connectDB();
-  const user = await User.findOne({ name });
+
+  // בדוק אם יש club_session (חייב להיות מחובר למועדון)
+  const clubSession = await getClubSession();
+  if (!clubSession) {
+    return {
+      success: false,
+      error: "נא להיכנס למועדון תחילה לפני התחברות כשחקן",
+    };
+  }
+
+  // מצא משתמש עם השם והקלאב הנוכחי
+  const user = await User.findOne({
+    name: name.trim(),
+    clubId: clubSession,
+  });
 
   if (!user) {
-    return { success: false, error: "שחקן לא נמצא" };
+    return {
+      success: false,
+      error: `שחקן עם השם "${name.trim()}" לא נמצא במועדון הנוכחי`,
+    };
   }
 
   if (!user.password) {
