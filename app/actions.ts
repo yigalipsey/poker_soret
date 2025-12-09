@@ -88,7 +88,12 @@ export async function requestBuyIn(
   const game = await GameSession.findById(gameId);
   if (!game) throw new Error("Game not found");
 
-  const player = game.players.find((p) => p.userId.toString() === userId);
+  const player = game.players.find((p) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
   if (!player) throw new Error("Player not found in this game");
 
   player.buyInRequests.push({
@@ -113,7 +118,12 @@ export async function approveRequest(
   const game = await GameSession.findById(gameId);
   if (!game) throw new Error("Game not found");
 
-  const player = game.players.find((p) => p.userId.toString() === userId);
+  const player = game.players.find((p) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
   if (!player) throw new Error("Player not found");
 
   const request = player.buyInRequests.find(
@@ -139,7 +149,12 @@ export async function rejectRequest(
   const game = await GameSession.findById(gameId);
   if (!game) throw new Error("Game not found");
 
-  const player = game.players.find((p) => p.userId.toString() === userId);
+  const player = game.players.find((p) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
   if (!player) throw new Error("Player not found");
 
   const request = player.buyInRequests.find(
@@ -162,7 +177,12 @@ export async function adminAddBuyIn(
   const game = await GameSession.findById(gameId);
   if (!game) throw new Error("Game not found");
 
-  const player = game.players.find((p) => p.userId.toString() === userId);
+  const player = game.players.find((p) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
   if (!player) throw new Error("Player not found");
 
   // Create an approved request record for tracking
@@ -188,6 +208,13 @@ export async function endGame(
   const game = await GameSession.findById(gameId).populate("players.userId");
   if (!game) throw new Error("Game not found");
 
+  // בדיקה שהמשחק עדיין פעיל - אם לא, לא נעדכן globalBalance שוב
+  if (!game.isActive) {
+    console.warn(
+      `Game ${gameId} is already inactive, skipping globalBalance update`
+    );
+  }
+
   // חישוב סך הקופה
   const totalChipsInPot = game.players.reduce(
     (sum: number, p: any) => sum + (p.totalApprovedBuyIn || 0),
@@ -198,7 +225,9 @@ export async function endGame(
   // שינוי לוגיקה: אין צורך שכולם יזינו, מי שלא הזין נחשב כ-0 אם הסכום תואם
   const playersWithoutCashOut: any[] = [];
   game.players.forEach((player: any) => {
-    const playerId = player.userId.toString();
+    const playerId = player.userId._id
+      ? player.userId._id.toString()
+      : player.userId.toString();
     const cashOut = cashOutData[playerId];
 
     if (!player.isCashedOut && (cashOut === undefined || cashOut === null)) {
@@ -219,7 +248,10 @@ export async function endGame(
   // 2. שחקנים שעדיין במשחק - סכום מהטופס (מי שחסר נחשב 0)
   game.players.forEach((p: any) => {
     if (p.isCashedOut) return;
-    const val = cashOutData[p.userId.toString()];
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    const val = cashOutData[playerId];
     totalCashOut += Number(val) || 0;
   });
 
@@ -240,7 +272,11 @@ export async function endGame(
 
   // עדכון cashOut ו-netProfit לכל השחקנים
   game.players.forEach((player: any) => {
-    const playerId = player.userId.toString();
+    // userId הוא User document (populated), אז נשתמש ב-userId._id.toString()
+    // זה תמיד מחזיר את ה-ID כש-string
+    const playerId = player.userId._id
+      ? player.userId._id.toString()
+      : player.userId.toString();
 
     // אם השחקן כבר יצא, נשאיר את ה-cashOut שלו כמו שהוא
     if (player.isCashedOut) {
@@ -252,7 +288,9 @@ export async function endGame(
 
     // שחקנים שעדיין במשחק - עדכון מה-cashOutData
     const cashOut = cashOutData[playerId];
-    const cashOutValue = Number(cashOut) || 0;
+    // שימוש ב-Number() עם בדיקה מפורשת ל-null/undefined כדי לתמוך גם ב-0 כערך תקין
+    const cashOutValue =
+      cashOut === undefined || cashOut === null ? 0 : Number(cashOut);
 
     player.cashOut = cashOutValue;
     player.netProfit = cashOutValue - (player.totalApprovedBuyIn || 0);
@@ -260,6 +298,28 @@ export async function endGame(
 
   game.isActive = false;
   await game.save();
+
+  // עדכון globalBalance לכל השחקנים לפי ה-netProfit שלהם
+  // זה קורה רק פעם אחת כשהמשחק מסתיים
+  for (const player of game.players) {
+    const userId = player.userId._id ? player.userId._id : player.userId;
+    const netProfit = player.netProfit || 0;
+    const balanceChange = chipsToShekels(netProfit); // המרה משקלים (1000 זיטונים = 1 שקל)
+
+    if (balanceChange !== 0) {
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $inc: { globalBalance: balanceChange } },
+        { new: true }
+      );
+      console.log(
+        `Updated globalBalance for player ${updatedUser?.name || userId}: ` +
+          `${balanceChange} ₪ (netProfit: ${netProfit} chips, new balance: ${
+            updatedUser?.globalBalance || 0
+          } ₪)`
+      );
+    }
+  }
 
   // חישוב אוטומטי של ההתחשבנות אחרי סיום המשחק
   // חשוב: אם יש שגיאה, המשחק כבר נשמר כלא פעיל, רק ההתחשבנות לא תישמר
@@ -270,8 +330,10 @@ export async function endGame(
       const netProfit = p.netProfit || 0;
       const balanceInShekels = chipsToShekels(netProfit);
       const userId = p.userId as any;
+      // userId הוא User document (populated), אז נשתמש ב-userId._id.toString()
+      const playerId = userId._id ? userId._id.toString() : userId.toString();
       return {
-        playerId: userId.toString(),
+        playerId: playerId,
         balance: balanceInShekels,
         playerName: userId.name || "Unknown",
         netProfitChips: netProfit,
@@ -351,7 +413,12 @@ export async function cashOutPlayer(
     0
   );
 
-  const player = game.players.find((p) => p.userId.toString() === userId);
+  const player = game.players.find((p) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
   if (!player) throw new Error("Player not found");
 
   // וידוא ש-amount הוא מספר תקין
@@ -361,7 +428,10 @@ export async function cashOutPlayer(
   // חישוב סך ה-cashOut שכבר הוזן (רק משחקנים שכבר יצאו, לא כולל השחקן הנוכחי אם הוא כבר יצא)
   const totalCashOut = game.players.reduce((sum: number, p: any) => {
     // דלג על השחקן הנוכחי אם הוא כבר יצא (נעדכן אותו אחר כך)
-    if (p.userId.toString() === userId && p.isCashedOut) {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    if (playerId === userId && p.isCashedOut) {
       return sum; // לא נכלול את ה-cashOut הישן שלו
     }
     // רק שחקנים שכבר יצאו (isCashedOut = true)
@@ -390,6 +460,10 @@ export async function cashOutPlayer(
   }
 
   await game.save();
+
+  // לא מעדכנים globalBalance כאן - זה יתעדכן רק בסיום המשחק (endGame)
+  // כדי למנוע עדכונים חלקיים במהלך המשחק
+
   revalidatePath("/admin");
 }
 
@@ -414,8 +488,10 @@ export async function calculateSettlementAction(gameId: string) {
     const netProfit = p.netProfit || 0;
     const balanceInShekels = chipsToShekels(netProfit);
     const userId = p.userId as any;
+    // userId הוא User document (populated), אז נשתמש ב-userId._id.toString()
+    const playerId = userId._id ? userId._id.toString() : userId.toString();
     return {
-      playerId: userId.toString(),
+      playerId: playerId,
       balance: balanceInShekels,
       playerName: userId.name || "Unknown",
       netProfitChips: netProfit,
@@ -532,9 +608,12 @@ export async function addPlayerToGame(
   if (!game.isActive) throw new Error("Game is not active");
 
   // Check if player already in game
-  const existingPlayer = game.players.find(
-    (p) => p.userId.toString() === userId
-  );
+  const existingPlayer = game.players.find((p: any) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
   if (existingPlayer) throw new Error("Player already in game");
 
   // Add new player

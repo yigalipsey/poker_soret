@@ -59,7 +59,7 @@ export default function AdminView({ users, activeGame }: any) {
       {/* Game Area - Takes precedence */}
       <div className="w-full animate-[fade-in_0.5s_ease-out]">
         {activeGame ? (
-          <ActiveGameDashboard game={activeGame} />
+          <ActiveGameDashboard game={activeGame} users={users} />
         ) : (
           <>
             {/* Always show option to create new game */}
