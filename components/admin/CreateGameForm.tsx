@@ -5,7 +5,13 @@ import { Loader2, Play, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
 
-export default function CreateGameForm({ users }: { users: any[] }) {
+export default function CreateGameForm({
+  users,
+  clubId,
+}: {
+  users: any[];
+  clubId?: string | null;
+}) {
   const [selected, setSelected] = useState<string[]>([]);
   const [buyIns, setBuyIns] = useState<Record<string, number>>({});
   const [showCustomInputs, setShowCustomInputs] = useState<
@@ -45,15 +51,19 @@ export default function CreateGameForm({ users }: { users: any[] }) {
 
   async function handleCreate() {
     if (selected.length < 2) return;
+    if (!clubId) {
+      alert("נא לבחור קלאב תחילה");
+      return;
+    }
     setLoading(true);
-    await createGame(selected, buyIns);
+    await createGame(selected, buyIns, clubId);
     setLoading(false);
     setSelected([]);
     setBuyIns({});
   }
 
   return (
-    <section className="glass-card p-6 rounded-2xl max-w-2xl mx-auto">
+    <section className="glass-card p-6 rounded-2xl">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-emerald-500/20 rounded-lg">
           <Play className="w-5 h-5 text-emerald-500" />

@@ -96,7 +96,7 @@ export default function PlayerGameClient({
   }
 
   return (
-    <div className="min-h-screen p-4 max-w-md mx-auto space-y-6 pb-24">
+    <div className="min-h-screen px-4 pt-4 pb-24 max-w-md mx-auto space-y-6">
       {/* Header */}
       <header className="flex justify-between items-center">
         <div>

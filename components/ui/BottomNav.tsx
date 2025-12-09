@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, History, Settings, PlayCircle, Users } from "lucide-react";
+import { Home, History, Settings, PlayCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -15,7 +15,7 @@ export function BottomNav({ activeGameId }: BottomNavProps) {
   const [showNoGameMessage, setShowNoGameMessage] = useState(false);
 
   // Don't show on specific routes if needed (e.g. login)
-  if (pathname === "/login") return null;
+  if (pathname === "/login" || pathname === "/club-login") return null;
 
   const isActive = (path: string) => pathname === path;
 
@@ -50,7 +50,7 @@ export function BottomNav({ activeGameId }: BottomNavProps) {
           <Link
             href="/"
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 w-16",
+              "flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 w-14",
               isActive("/")
                 ? "text-amber-400 bg-amber-400/10"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
@@ -85,7 +85,7 @@ export function BottomNav({ activeGameId }: BottomNavProps) {
           <Link
             href="/history"
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 w-16",
+              "flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 w-14",
               isActive("/history")
                 ? "text-amber-400 bg-amber-400/10"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
@@ -101,9 +101,24 @@ export function BottomNav({ activeGameId }: BottomNavProps) {
           </Link>
 
           <Link
+            href="/profile"
+            className={cn(
+              "flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 w-14",
+              isActive("/profile")
+                ? "text-amber-400 bg-amber-400/10"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+            )}
+          >
+            <User
+              className={cn("w-6 h-6", isActive("/profile") && "fill-current")}
+            />
+            <span className="text-[10px] font-medium">פרופיל</span>
+          </Link>
+
+          <Link
             href="/admin"
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 w-16",
+              "flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 w-14",
               isActive("/admin")
                 ? "text-amber-400 bg-amber-400/10"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"

@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { calculateSettlementAction } from "@/app/actions";
 import {
   Loader2,
-  ArrowLeft,
   CheckCircle2,
   Calculator,
   AlertCircle,
@@ -64,12 +63,12 @@ export default function SettlementView({ game }: { game: any }) {
   }
 
   return (
-    <section className="glass-card p-6 rounded-2xl max-w-2xl mx-auto">
+    <section className="glass-card p-4 sm:p-6 rounded-2xl max-w-2xl mx-auto w-full overflow-x-hidden">
       {/* Error Message */}
       {errorMessage && (
         <div className="mb-6 p-4 rounded-xl border border-rose-500/50 bg-rose-500/10 animate-in slide-in-from-top-2">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-rose-400 font-medium">{errorMessage}</p>
             </div>
@@ -118,19 +117,19 @@ export default function SettlementView({ game }: { game: any }) {
               {game.players.map((p: any) => (
                 <div
                   key={p.userId._id}
-                  className="flex items-center justify-between bg-slate-800/40 p-4 rounded-xl border border-slate-700/50"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <Avatar
                       name={p.userId.name}
                       imageUrl={p.userId.avatarUrl}
                       size="sm"
                     />
-                    <div>
-                      <div className="font-medium text-slate-200">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-slate-200 truncate">
                         {p.userId.name}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-500 wrap-break-word">
                         נכנס: {formatChips(p.totalApprovedBuyIn || 0)} | יצא:{" "}
                         {formatChips(p.cashOut || 0)}
                       </div>
@@ -138,7 +137,7 @@ export default function SettlementView({ game }: { game: any }) {
                   </div>
                   <div
                     className={cn(
-                      "font-bold font-mono flex items-center gap-1",
+                      "font-bold font-mono flex items-center gap-1 shrink-0",
                       (p.netProfit || 0) > 0
                         ? "text-emerald-400"
                         : (p.netProfit || 0) < 0
@@ -151,8 +150,10 @@ export default function SettlementView({ game }: { game: any }) {
                     ) : (p.netProfit || 0) < 0 ? (
                       <TrendingDown className="w-4 h-4" />
                     ) : null}
-                    {(p.netProfit || 0) > 0 ? "+" : ""}
-                    {formatShekels(chipsToShekels(p.netProfit || 0))}
+                    <span className="whitespace-nowrap">
+                      {(p.netProfit || 0) > 0 ? "+" : ""}
+                      {formatShekels(chipsToShekels(p.netProfit || 0))}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -169,29 +170,22 @@ export default function SettlementView({ game }: { game: any }) {
                 {game.settlementTransfers.map((t: any, i: number) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition"
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition"
                   >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
                         <Avatar
                           name={t.payerId.name}
                           imageUrl={t.payerId.avatarUrl}
                           size="sm"
                         />
-                        <span className="font-bold text-rose-400 text-lg">
+                        <span className="font-bold text-rose-400 text-base sm:text-lg truncate">
                           {t.payerId.name}
                         </span>
                       </div>
-                      <div className="flex-1 flex flex-col items-center px-2">
-                        <span className="text-xs text-slate-500 mb-1">
-                          מעביר ל
-                        </span>
-                        <div className="h-[1px] w-full bg-slate-700 relative">
-                          <ArrowLeft className="w-3 h-3 text-slate-500 absolute top-1/2 left-0 -translate-y-1/2" />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-emerald-400 text-lg">
+                      <span className="text-slate-500 text-sm">→</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-bold text-emerald-400 text-base sm:text-lg truncate">
                           {t.receiverId.name}
                         </span>
                         <Avatar
@@ -201,7 +195,7 @@ export default function SettlementView({ game }: { game: any }) {
                         />
                       </div>
                     </div>
-                    <div className="font-mono font-bold text-amber-400 text-xl ml-4 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
+                    <div className="font-mono font-bold text-amber-400 text-lg sm:text-xl sm:ml-4 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20 shrink-0 text-center sm:text-right">
                       ₪{t.amount}
                     </div>
                   </div>

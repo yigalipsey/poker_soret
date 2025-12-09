@@ -1,4 +1,14 @@
-import { getUsers, getActiveGame, getGameHistory } from "./actions";
+import {
+  getUsers,
+  getActiveGame,
+  getGameHistory,
+  getClubSession,
+  getClub,
+  getPlayerSession,
+} from "./actions";
+import connectDB from "@/lib/db";
+import Club from "@/models/Club";
+import User from "@/models/User";
 import Link from "next/link";
 import { cn, chipsToShekels } from "@/lib/utils";
 import {
@@ -10,18 +20,35 @@ import {
   Sparkles,
   PlayCircle,
   Calendar,
+  Building2,
 } from "lucide-react";
 import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
 import { TiltCard } from "@/components/ui/TiltCard";
 import { Avatar } from "@/components/ui/Avatar";
+import ClubLoginScreen from "@/components/ClubLoginScreen";
+import ClubLogoutButton from "@/components/ClubLogoutButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  const clubId = await getClubSession();
+
+  // If no club session, show login/creation screen
+  if (!clubId) {
+    return (
+      <div className="min-h-screen flex items-start justify-center pt-8 px-4">
+        <ClubLoginScreen />
+      </div>
+    );
+  }
+
+  const club = await getClub(clubId);
+  const currentUser = await getPlayerSession();
+
   const [users, activeGame, history] = await Promise.all([
-    getUsers(),
-    getActiveGame(),
-    getGameHistory(),
+    getUsers(clubId),
+    getActiveGame(clubId),
+    getGameHistory(clubId),
   ]);
 
   // מאזן מועדון כולל - סכום של כל ה-globalBalance של המשתמשים
@@ -47,19 +74,20 @@ export default async function Home() {
   );
 
   return (
-    <div className="min-h-screen pb-24 px-4 pt-6 max-w-md mx-auto relative overflow-hidden">
+    <div className="min-h-screen pb-24 px-4 pt-4 max-w-md mx-auto relative overflow-hidden">
       {/* Header */}
-      <header className="flex justify-center items-center mb-8 relative z-10">
+      <header className="mb-6 relative z-10">
+        {/* Logout button - top right */}
+        <div className="flex justify-start mb-4">
+          <ClubLogoutButton />
+        </div>
+
+        {/* Title - below button */}
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gradient tracking-tight flex items-center gap-2 justify-center">
-            Club Soret{" "}
+            {club?.name || "מועדון"}{" "}
             <Sparkles className="w-5 h-5 text-amber-400 animate-pulse" />
           </h1>
-          <p className="text-slate-400 text-sm font-medium tracking-wide flex items-center gap-2 justify-center">
-            <span className="text-rose-500">♥️</span>
-            הזירה של המקצוענים
-            <span className="text-slate-200">♠️</span>
-          </p>
         </div>
       </header>
 

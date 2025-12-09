@@ -30,6 +30,7 @@ export interface IGameSession extends Document {
   isSettled: boolean;
   players: IPlayerSession[];
   settlementTransfers: ITransfer[];
+  clubId?: mongoose.Types.ObjectId;
 }
 
 const RequestSchema = new Schema({
@@ -65,6 +66,7 @@ const GameSessionSchema = new Schema({
   isSettled: { type: Boolean, default: false },
   players: [PlayerSessionSchema],
   settlementTransfers: [TransferSchema],
+  clubId: { type: Schema.Types.ObjectId, ref: "Club", required: false },
 });
 
 const GameSession: Model<IGameSession> =

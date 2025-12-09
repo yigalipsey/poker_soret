@@ -6,7 +6,6 @@ import {
   TrendingDown,
   TrendingUp,
   User,
-  ArrowRight,
   CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,7 +22,7 @@ export default function GameSummary({ game }: { game: any }) {
   );
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-24 pt-4 px-4">
       <header className="flex items-center gap-4 py-6 mb-8">
         <Link
           href="/history"
@@ -156,37 +155,32 @@ export default function GameSummary({ game }: { game: any }) {
             {game.settlementTransfers.map((t: any, i: number) => (
               <div
                 key={i}
-                className="flex items-center justify-between bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition"
+                className="flex items-center gap-1 sm:gap-3 bg-slate-800/40 p-3 sm:p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition"
               >
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Avatar
-                      name={t.payerId?.name || "Unknown"}
-                      imageUrl={t.payerId?.avatarUrl}
-                      size="sm"
-                    />
-                    <span className="font-bold text-rose-400 text-lg">
-                      {t.payerId?.name || "Unknown"}
-                    </span>
-                  </div>
-                  <div className="flex-1 flex flex-col items-center px-2">
-                    <span className="text-xs text-slate-500 mb-1">מעביר ל</span>
-                    <div className="h-px w-full bg-slate-700 relative">
-                      <ArrowRight className="w-3 h-3 text-slate-500 absolute top-1/2 right-0 -translate-y-1/2" />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-emerald-400 text-lg">
-                      {t.receiverId?.name || "Unknown"}
-                    </span>
-                    <Avatar
-                      name={t.receiverId?.name || "Unknown"}
-                      imageUrl={t.receiverId?.avatarUrl}
-                      size="sm"
-                    />
-                  </div>
+                <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                  <Avatar
+                    name={t.payerId?.name || "Unknown"}
+                    imageUrl={t.payerId?.avatarUrl}
+                    size="sm"
+                  />
+                  <span className="font-bold text-rose-400 text-sm sm:text-lg truncate">
+                    {t.payerId?.name || "Unknown"}
+                  </span>
                 </div>
-                <div className="font-mono font-bold text-amber-400 text-xl ml-4 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
+                <span className="text-slate-500 text-xs sm:text-sm shrink-0">
+                  ←
+                </span>
+                <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                  <span className="font-bold text-emerald-400 text-sm sm:text-lg truncate">
+                    {t.receiverId?.name || "Unknown"}
+                  </span>
+                  <Avatar
+                    name={t.receiverId?.name || "Unknown"}
+                    imageUrl={t.receiverId?.avatarUrl}
+                    size="sm"
+                  />
+                </div>
+                <div className="font-mono font-bold text-amber-400 text-xs sm:text-xl bg-amber-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg border border-amber-500/20 shrink-0 whitespace-nowrap">
                   ₪{t.amount?.toFixed(2)}
                 </div>
               </div>

@@ -15,13 +15,13 @@ import {
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 
-export default function AdminView({ users, activeGame }: any) {
+export default function AdminView({ users, activeGame, clubId }: any) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8">
       {/* Success/Error Messages */}
       {successMessage && (
         <div className="glass-card p-4 rounded-xl border border-emerald-500/50 bg-emerald-500/10 animate-in slide-in-from-top-2">
@@ -69,14 +69,14 @@ export default function AdminView({ users, activeGame }: any) {
               </h2>
               <p className="text-slate-400">בחר שחקנים ופתח שולחן חדש</p>
             </div>
-            <CreateGameForm users={users} />
+            <CreateGameForm users={users} clubId={clubId} />
           </>
         )}
       </div>
 
       {/* User Management */}
       <div className="border-t border-slate-800/50 pt-8">
-        <section className="glass-card p-6 rounded-2xl max-w-lg mx-auto">
+        <section className="glass-card p-6 rounded-2xl">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-amber-500/20 rounded-lg">
               <Users className="w-5 h-5 text-amber-500" />
@@ -86,7 +86,7 @@ export default function AdminView({ users, activeGame }: any) {
             </h2>
           </div>
 
-          <CreateUserForm />
+          <CreateUserForm clubId={clubId} />
 
           <div className="mt-6">
             <h3 className="text-sm font-medium text-slate-500 mb-3 uppercase tracking-wider">

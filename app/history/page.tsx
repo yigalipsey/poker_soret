@@ -1,4 +1,4 @@
-import { getGameHistory } from "@/app/actions";
+import { getGameHistory, getClubSession } from "@/app/actions";
 import Link from "next/link";
 import {
   Calendar,
@@ -9,14 +9,26 @@ import {
   Coins,
 } from "lucide-react";
 import { cn, chipsToShekels } from "@/lib/utils";
+import ClubLoginScreen from "@/components/ClubLoginScreen";
 
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
-  const games = await getGameHistory();
+  const clubId = await getClubSession();
+
+  // If no club session, show login screen
+  if (!clubId) {
+    return (
+      <div className="min-h-screen flex items-start justify-center pt-8 px-4">
+        <ClubLoginScreen />
+      </div>
+    );
+  }
+
+  const games = await getGameHistory(clubId);
 
   return (
-    <div className="min-h-screen pb-20 px-4 pt-6 max-w-md mx-auto relative overflow-hidden">
+    <div className="min-h-screen pb-24 px-4 pt-4 max-w-md mx-auto relative overflow-hidden">
       {/* Background Decorative Elements */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
         <div className="absolute top-[20%] right-[-20%] w-[60%] h-[60%] bg-indigo-600/10 rounded-full blur-[100px] animate-pulse-slow"></div>

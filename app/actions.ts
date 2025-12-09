@@ -3,6 +3,7 @@
 import connectDB from "@/lib/db";
 import GameSession from "@/models/GameSession";
 import User from "@/models/User";
+import Club from "@/models/Club";
 import { calculateSettlements } from "@/lib/settlement";
 import { revalidatePath } from "next/cache";
 import mongoose from "mongoose";
@@ -10,28 +11,50 @@ import { cookies } from "next/headers";
 // bcrypt removed - using plain text passwords for simplicity
 import { chipsToShekels } from "@/lib/utils";
 
-export async function getUsers() {
+export async function getUsers(clubId?: string) {
   await connectDB();
-  const users = await User.find({}).sort({ globalBalance: -1 }).lean();
+  const query: any = { isAdmin: false }; // רק שחקנים, לא מנהלים
+  if (clubId) {
+    query.clubId = clubId;
+  }
+  const users = await User.find(query).sort({ globalBalance: -1 }).lean();
   return JSON.parse(JSON.stringify(users));
 }
 
-export async function createUser(name: string, isAdmin: boolean = false) {
+export async function createUser(
+  name: string,
+  isAdmin: boolean = false,
+  clubId?: string,
+  password?: string
+) {
   await connectDB();
-  // כל משתמש חדש מקבל סיסמה 1234 כברירת מחדל
-  const user = await User.create({ name, isAdmin, password: "1234" });
+  const userData: any = {
+    name,
+    isAdmin,
+    password: password || "1234",
+  };
+  if (clubId) {
+    userData.clubId = clubId;
+  }
+  const user = await User.create(userData);
   revalidatePath("/");
+  revalidatePath("/admin");
   return JSON.parse(JSON.stringify(user));
 }
 
 export async function createGame(
   playerIds: string[],
-  initialBuyIns: Record<string, number>
+  initialBuyIns: Record<string, number>,
+  clubId?: string
 ) {
   await connectDB();
 
-  // Deactivate any currently active games
-  await GameSession.updateMany({ isActive: true }, { isActive: false });
+  // Deactivate any currently active games for this club
+  const deactivateQuery: any = { isActive: true };
+  if (clubId) {
+    deactivateQuery.clubId = clubId;
+  }
+  await GameSession.updateMany(deactivateQuery, { isActive: false });
 
   const players = playerIds.map((id) => ({
     userId: new mongoose.Types.ObjectId(id),
@@ -52,18 +75,26 @@ export async function createGame(
     isCashedOut: false,
   }));
 
-  const game = await GameSession.create({
+  const gameData: any = {
     players,
     isActive: true,
-  });
+  };
+  if (clubId) {
+    gameData.clubId = clubId;
+  }
+  const game = await GameSession.create(gameData);
 
   revalidatePath("/");
   return JSON.parse(JSON.stringify(game));
 }
 
-export async function getActiveGame() {
+export async function getActiveGame(clubId?: string) {
   await connectDB();
-  const game = await GameSession.findOne({ isActive: true })
+  const query: any = { isActive: true };
+  if (clubId) {
+    query.clubId = clubId;
+  }
+  const game = await GameSession.findOne(query)
     .populate("players.userId")
     .lean();
   return JSON.parse(JSON.stringify(game));
@@ -585,10 +616,14 @@ export async function logoutPlayer() {
   revalidatePath("/");
 }
 
-export async function getGameHistory() {
+export async function getGameHistory(clubId?: string) {
   await connectDB();
+  const query: any = { isActive: false };
+  if (clubId) {
+    query.clubId = clubId;
+  }
   // מחזיר את כל המשחקים הלא פעילים (ללא תלות ב-isSettled)
-  const games = await GameSession.find({ isActive: false })
+  const games = await GameSession.find(query)
     .sort({ date: -1 })
     .populate("players.userId")
     .populate("settlementTransfers.payerId")
@@ -690,4 +725,80 @@ export async function setAllUsersPasswordTo1234() {
   const result = await User.updateMany({}, { password: "1234" });
   revalidatePath("/admin");
   return { updated: result.modifiedCount };
+}
+
+export async function getClubSession(): Promise<string | null> {
+  const sessionCookie = (await cookies()).get("club_session");
+  return sessionCookie ? sessionCookie.value : null;
+}
+
+export async function getClub(clubId: string) {
+  await connectDB();
+  const club = await Club.findById(clubId).populate("managerId").lean();
+  return club ? JSON.parse(JSON.stringify(club)) : null;
+}
+
+export async function getAllClubs() {
+  await connectDB();
+  const clubs = await Club.find({}).populate("managerId").lean();
+  return JSON.parse(JSON.stringify(clubs));
+}
+
+export async function createClub(name: string, managerId: string) {
+  await connectDB();
+  const club = await Club.create({
+    name,
+    managerId,
+  });
+  revalidatePath("/admin");
+  return JSON.parse(JSON.stringify(club));
+}
+
+export async function setClubSession(clubId: string) {
+  (await cookies()).set("club_session", clubId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 365 * 10, // 10 years
+  });
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+export async function getUserClubs(userId: string) {
+  await connectDB();
+  const user = await User.findById(userId).lean();
+  if (!user) return [];
+
+  // Get clubs where user is a member (has clubId matching)
+  const clubs = await Club.find({
+    $or: [{ _id: user.clubId }, { managerId: userId }],
+  })
+    .populate("managerId")
+    .lean();
+
+  return JSON.parse(JSON.stringify(clubs));
+}
+
+export async function addPlayerToClub(userId: string, clubId: string) {
+  await connectDB();
+  await User.findByIdAndUpdate(userId, { clubId });
+  revalidatePath("/admin");
+}
+
+export async function isClubManager(clubId: string, userId: string) {
+  await connectDB();
+  const club = await Club.findById(clubId).lean();
+  if (!club) return false;
+  return club.managerId.toString() === userId;
+}
+
+export async function getChipsPerShekel(clubId?: string): Promise<number> {
+  await connectDB();
+  if (!clubId) {
+    const currentClubId = await getClubSession();
+    if (!currentClubId) return 1000; // default
+    clubId = currentClubId;
+  }
+  const club = await Club.findById(clubId).select("chipsPerShekel").lean();
+  return club?.chipsPerShekel || 1000;
 }
