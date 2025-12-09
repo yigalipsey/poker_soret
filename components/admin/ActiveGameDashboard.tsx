@@ -118,7 +118,7 @@ export default function ActiveGameDashboard({ game }: { game: any }) {
       const playersWithoutCashOut = game.players.filter((p: any) => {
         if (p.isCashedOut) return false;
         const cashOut = finalCashOuts[p.userId._id];
-        return cashOut === undefined || cashOut === null || cashOut === "";
+        return cashOut === undefined || cashOut === null;
       });
 
       let message = `סכום ה-cashOut (${formatChips(
@@ -507,8 +507,7 @@ export default function ActiveGameDashboard({ game }: { game: any }) {
                               className={cn(
                                 "flex-1 min-w-[150px] bg-slate-900/50 border rounded-lg px-3 py-2 text-white focus:ring-2 outline-none transition",
                                 cashOuts[p.userId._id] === undefined ||
-                                  cashOuts[p.userId._id] === null ||
-                                  cashOuts[p.userId._id] === ""
+                                  cashOuts[p.userId._id] === null
                                   ? "border-slate-700 focus:ring-amber-500/50"
                                   : (cashOuts[p.userId._id] || 0) >
                                     totalChipsInPot
@@ -556,8 +555,7 @@ export default function ActiveGameDashboard({ game }: { game: any }) {
                                 className={cn(
                                   "flex-1 min-w-[120px] bg-slate-900/50 border rounded-lg px-3 py-2 text-white focus:ring-2 outline-none transition",
                                   cashOuts[p.userId._id] === undefined ||
-                                    cashOuts[p.userId._id] === null ||
-                                    cashOuts[p.userId._id] === ""
+                                    cashOuts[p.userId._id] === null
                                     ? "border-slate-700 focus:ring-amber-500/50"
                                     : (cashOuts[p.userId._id] || 0) >
                                       totalChipsInPot
@@ -799,7 +797,7 @@ export default function ActiveGameDashboard({ game }: { game: any }) {
                   if (p.isCashedOut) return false;
                   const cashOut = cashOuts[p.userId._id];
                   return (
-                    cashOut === undefined || cashOut === null || cashOut === ""
+                    cashOut === undefined || cashOut === null
                   );
                 });
 

@@ -185,7 +185,8 @@ export async function endGame(
   cashOutData: Record<string, number>
 ) {
   await connectDB();
-  const game = await GameSession.findById(gameId);
+  const game = await GameSession.findById(gameId)
+    .populate("players.userId");
   if (!game) throw new Error("Game not found");
 
   // חישוב סך הקופה
@@ -203,7 +204,7 @@ export async function endGame(
 
     if (
       !player.isCashedOut &&
-      (cashOut === undefined || cashOut === null || cashOut === "")
+      (cashOut === undefined || cashOut === null)
     ) {
       // לא הזינו עבורו ערך
     }
@@ -272,10 +273,11 @@ export async function endGame(
     const balances = game.players.map((p: any) => {
       const netProfit = p.netProfit || 0;
       const balanceInShekels = chipsToShekels(netProfit);
+      const userId = p.userId as any;
       return {
-        playerId: p.userId.toString(),
+        playerId: userId.toString(),
         balance: balanceInShekels,
-        playerName: p.userId.name || "Unknown",
+        playerName: userId.name || "Unknown",
         netProfitChips: netProfit,
       };
     });
@@ -397,7 +399,8 @@ export async function cashOutPlayer(
 
 export async function calculateSettlementAction(gameId: string) {
   await connectDB();
-  const game = await GameSession.findById(gameId);
+  const game = await GameSession.findById(gameId)
+    .populate("players.userId");
   if (!game) throw new Error("Game not found");
 
   // בדיקה שכל השחקנים יש להם cashOut (יכול להיות 0 אם הפסיד הכל)
@@ -412,13 +415,14 @@ export async function calculateSettlementAction(gameId: string) {
   }
 
   // המרת זיטונים לשקלים לפני חישוב ההתחשבנות (1000 זיטונים = 1 שקל)
-  const balances = game.players.map((p) => {
+  const balances = game.players.map((p: any) => {
     const netProfit = p.netProfit || 0;
     const balanceInShekels = chipsToShekels(netProfit);
+    const userId = p.userId as any;
     return {
-      playerId: p.userId.toString(),
+      playerId: userId.toString(),
       balance: balanceInShekels,
-      playerName: p.userId.name || "Unknown",
+      playerName: userId.name || "Unknown",
       netProfitChips: netProfit,
     };
   });
@@ -547,8 +551,10 @@ export async function addPlayerToGame(
         ? [
             {
               amount: initialBuyIn,
-              status: "approved",
+              status: "approved" as const,
               timestamp: new Date(),
+              isInitial: true,
+              addedBy: "admin" as const,
             },
           ]
         : [],
