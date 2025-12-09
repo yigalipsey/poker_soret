@@ -1,13 +1,11 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
 // Don't throw error during build time if MONGODB_URI is not set
 // This allows the build to complete even if DB connection is not available
-if (!MONGODB_URI && process.env.NODE_ENV !== 'production') {
-  console.warn(
-    'MONGODB_URI is not defined. Database operations will fail.'
-  );
+if (!MONGODB_URI && process.env.NODE_ENV !== "production") {
+  console.warn("MONGODB_URI is not defined. Database operations will fail.");
 }
 
 interface MongooseCache {
@@ -28,7 +26,7 @@ if (!cached) {
 async function connectDB() {
   if (!MONGODB_URI) {
     throw new Error(
-      'MONGODB_URI is not defined. Please set it in your environment variables.'
+      "MONGODB_URI is not defined. Please set it in your environment variables."
     );
   }
 
