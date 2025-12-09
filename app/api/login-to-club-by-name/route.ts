@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
     // מחק admin_session אם היה (חוזר למגבלות רגילות)
     (await cookies()).delete("admin_session");
     (await cookies()).delete("manager_session");
+    // מחק player_session - כשנכנסים למועדון חדש, צריך להתחבר מחדש עם משתמש מהמועדון החדש
+    (await cookies()).delete("player_session");
 
     return NextResponse.json({
       success: true,

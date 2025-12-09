@@ -9,6 +9,8 @@ export async function POST() {
   cookieStore.delete("club_session");
   cookieStore.delete("manager_session");
   cookieStore.delete("admin_session");
+  // Clear player session - כשמתנתקים ממועדון, גם הפרופיל מתנתק
+  cookieStore.delete("player_session");
 
   revalidatePath("/");
   revalidatePath("/profile");
