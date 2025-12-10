@@ -52,6 +52,7 @@ export default function ProfileContent({
       const res = await playerLogin(loginName, loginPassword);
 
       if (res.success) {
+        router.push("/");
         router.refresh();
       } else {
         setLoginError(res.error || "שגיאה בהתחברות");

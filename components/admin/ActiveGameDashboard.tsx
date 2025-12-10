@@ -1,11 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   approveRequest,
   rejectRequest,
   endGame,
   addPlayerToGame,
   cashOutPlayer,
+  cancelBuyIn,
+  removePlayerFromGame,
 } from "@/app/actions";
 import {
   Loader2,
@@ -16,6 +18,7 @@ import {
   AlertCircle,
   LogOut,
   UserPlus,
+  Trash2,
 } from "lucide-react";
 import { cn, formatChips, chipsToShekels, formatShekels } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -55,6 +58,96 @@ export default function ActiveGameDashboard({
   const [cashOutAmount, setCashOutAmount] = useState<number>(0);
   const [showCustomCashOutAmount, setShowCustomCashOutAmount] = useState(false);
   const router = useRouter();
+
+  // Long press handlers
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTargetRef = useRef<{
+    type: "player" | "buyin";
+    data: any;
+  } | null>(null);
+  const wasLongPressRef = useRef<boolean>(false);
+
+  const handleLongPressStart = (
+    type: "player" | "buyin",
+    data: any,
+    e: React.MouseEvent | React.TouchEvent
+  ) => {
+    wasLongPressRef.current = false;
+    longPressTargetRef.current = { type, data };
+    longPressTimerRef.current = setTimeout(() => {
+      wasLongPressRef.current = true;
+      if (type === "player") {
+        if (
+          confirm(
+            `האם אתה בטוח שברצונך להסיר את ${data.userId.name} מהמשחק? כל הכניסות שלו יימחקו.`
+          )
+        ) {
+          handleRemovePlayer(data);
+        }
+      } else if (type === "buyin") {
+        if (
+          confirm(
+            `האם אתה בטוח שברצונך למחוק כניסה זו של ${formatChips(
+              data.amount
+            )}?`
+          )
+        ) {
+          handleCancelBuyInAction(data);
+        }
+      }
+      longPressTargetRef.current = null;
+    }, 500); // 500ms for long press
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    // Reset after a short delay to allow click event to check
+    setTimeout(() => {
+      if (!wasLongPressRef.current) {
+        longPressTargetRef.current = null;
+      }
+      wasLongPressRef.current = false;
+    }, 100);
+  };
+
+  const handleRemovePlayer = async (player: any) => {
+    try {
+      setLoading(true);
+      await removePlayerFromGame(
+        game._id,
+        player.userId._id?.toString() || player.userId.toString()
+      );
+      router.refresh();
+    } catch (error: any) {
+      setErrorMessage(error?.message || "שגיאה בהסרת שחקן");
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelBuyInAction = async (data: {
+    player: any;
+    request: any;
+  }) => {
+    try {
+      setLoading(true);
+      await cancelBuyIn(
+        game._id,
+        data.player.userId._id?.toString() || data.player.userId.toString(),
+        data.request._id.toString()
+      );
+      router.refresh();
+    } catch (error: any) {
+      setErrorMessage(error?.message || "שגיאה במחיקת כניסה");
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleBuyInClick = (userId: string) => {
     setIsBuyInOpen((prev) => ({ ...prev, [userId]: true }));
@@ -496,6 +589,11 @@ export default function ActiveGameDashboard({
             <div
               key={p.userId._id}
               className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4"
+              onMouseDown={(e) => handleLongPressStart("player", p, e)}
+              onMouseUp={handleLongPressEnd}
+              onMouseLeave={handleLongPressEnd}
+              onTouchStart={(e) => handleLongPressStart("player", p, e)}
+              onTouchEnd={handleLongPressEnd}
             >
               {/* שם השחקן */}
               <div className="flex items-center justify-between gap-3 mb-4">
@@ -564,12 +662,44 @@ export default function ActiveGameDashboard({
                           <div key={req._id || idx} className="relative">
                             <div
                               onClick={() => {
-                                setExpandedBuyIn((prev) => ({
-                                  ...prev,
-                                  [buyInKey]: isExpanded ? null : buyInKey,
-                                }));
+                                // Only expand if not long press
+                                if (!wasLongPressRef.current) {
+                                  setExpandedBuyIn((prev) => ({
+                                    ...prev,
+                                    [buyInKey]: isExpanded ? null : buyInKey,
+                                  }));
+                                }
                               }}
-                              className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-emerald-400 font-mono text-sm cursor-pointer hover:bg-emerald-500/30 transition relative"
+                              onMouseDown={(e) => {
+                                if (!isInitial) {
+                                  handleLongPressStart(
+                                    "buyin",
+                                    { player: p, request: req },
+                                    e
+                                  );
+                                }
+                              }}
+                              onMouseUp={handleLongPressEnd}
+                              onMouseLeave={handleLongPressEnd}
+                              onTouchStart={(e) => {
+                                if (!isInitial) {
+                                  handleLongPressStart(
+                                    "buyin",
+                                    { player: p, request: req },
+                                    e
+                                  );
+                                }
+                              }}
+                              onTouchEnd={handleLongPressEnd}
+                              className={cn(
+                                "bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-emerald-400 font-mono text-sm cursor-pointer hover:bg-emerald-500/30 transition relative",
+                                !isInitial && "cursor-pointer"
+                              )}
+                              title={
+                                !isInitial
+                                  ? "לחיצה ממושכת למחיקת כניסה"
+                                  : undefined
+                              }
                             >
                               {formatChips(req.amount)}
                             </div>
@@ -581,7 +711,7 @@ export default function ActiveGameDashboard({
                                     {timeStr}
                                   </span>
                                 </div>
-                                <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center justify-between gap-3 mb-2">
                                   <span className="text-slate-400">סוג:</span>
                                   <div className="flex items-center gap-1 flex-wrap justify-end">
                                     {isInitial && (
@@ -1246,6 +1376,13 @@ export default function ActiveGameDashboard({
           )}
         </div>
       </section>
+
+      {/* Help text */}
+      <div className="mt-6 pt-4 border-t border-slate-800/50">
+        <p className="text-xs text-slate-600 text-center">
+          💡 לחיצה ממושכת על שחקן למחיקתו מהמשחק | לחיצה ממושכת על כניסה למחיקתה
+        </p>
+      </div>
     </div>
   );
 }

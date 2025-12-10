@@ -1,15 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { requestBuyIn, logoutPlayer } from "@/app/actions";
-import {
-  Loader2,
-  Coins,
-  Clock,
-  TrendingUp,
-  Users,
-  Calendar,
-  LogOut,
-} from "lucide-react";
+import { logoutPlayer } from "@/app/actions";
+import { Coins, Clock, TrendingUp, Users, LogOut, Plus } from "lucide-react";
 import { cn, formatChips, chipsToShekels, formatShekels } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
@@ -22,10 +14,6 @@ export default function PlayerGameClient({
   game: any;
   currentUser: any;
 }) {
-  const [amount, setAmount] = useState(20000); // זיטונים (20,000 = 20 שקלים) - ברירת מחדל
-  const [customAmount, setCustomAmount] = useState("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [elapsedTime, setElapsedTime] = useState("");
   const router = useRouter();
 
@@ -79,21 +67,6 @@ export default function PlayerGameClient({
   const hasMultipleBuyIns =
     approvedBuyIns.length > 1 ||
     approvedBuyIns.some((buyIn: any) => !buyIn.isInitial);
-
-  async function handleRequest() {
-    if (!currentUser) {
-      router.push("/player-login");
-      return;
-    }
-    if (!player) {
-      alert("אינך משתתף במשחק זה. פנה למנהל המשחק להוספתך.");
-      return;
-    }
-    setLoading(true);
-    await requestBuyIn(game._id, userId!, amount);
-    setLoading(false);
-    router.refresh();
-  }
 
   return (
     <div className="min-h-screen px-4 pt-4 pb-24 max-w-md mx-auto space-y-6">
@@ -211,6 +184,48 @@ export default function PlayerGameClient({
         );
       })()}
 
+      {/* All Players Status */}
+      <div className="glass p-4 rounded-xl">
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Users className="w-4 h-4" />
+          שחקנים בשולחן
+        </h3>
+        <div className="space-y-2">
+          {game.players.map((p: any) => (
+            <div
+              key={p.userId._id}
+              className={cn(
+                "flex justify-between items-center p-2 rounded-lg",
+                p.userId._id === userId
+                  ? "bg-amber-500/10 border border-amber-500/30"
+                  : "bg-slate-800/30"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <Avatar
+                  name={p.userId.name}
+                  imageUrl={p.userId.avatarUrl}
+                  size="sm"
+                />
+                <span
+                  className={cn(
+                    "font-medium",
+                    p.userId._id === userId
+                      ? "text-amber-400"
+                      : "text-slate-400"
+                  )}
+                >
+                  {p.userId.name}
+                </span>
+              </div>
+              <span className="text-emerald-400 font-mono text-sm">
+                {formatChips(p.totalApprovedBuyIn)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Buy-in History */}
       {approvedBuyIns.length > 0 && (
         <div className="glass p-4 rounded-xl">
@@ -269,117 +284,15 @@ export default function PlayerGameClient({
         </div>
       )}
 
-      {/* All Players Status */}
-      <div className="glass p-4 rounded-xl">
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <Users className="w-4 h-4" />
-          שחקנים בשולחן
-        </h3>
-        <div className="space-y-2">
-          {game.players.map((p: any) => (
-            <div
-              key={p.userId._id}
-              className={cn(
-                "flex justify-between items-center p-2 rounded-lg",
-                p.userId._id === userId
-                  ? "bg-amber-500/10 border border-amber-500/30"
-                  : "bg-slate-800/30"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <Avatar
-                  name={p.userId.name}
-                  imageUrl={p.userId.avatarUrl}
-                  size="sm"
-                />
-                <span
-                  className={cn(
-                    "font-medium",
-                    p.userId._id === userId
-                      ? "text-amber-400"
-                      : "text-slate-400"
-                  )}
-                >
-                  {p.userId.name}
-                </span>
-              </div>
-              <span className="text-emerald-400 font-mono text-sm">
-                {formatChips(p.totalApprovedBuyIn)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Request Buy-in - Only if logged in and is a player */}
-      {currentUser && player && (
-        <div className="space-y-4">
-          <select
-            value={showCustomInput ? "custom" : amount}
-            onChange={(e) => {
-              if (e.target.value === "custom") {
-                setShowCustomInput(true);
-              } else {
-                setShowCustomInput(false);
-                setAmount(Number(e.target.value));
-              }
-            }}
-            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-lg font-medium"
-          >
-            <option value={2000}>2,000 זיטונים (₪20)</option>
-            <option value={4000}>4,000 זיטונים (₪40)</option>
-            <option value={5000}>5,000 זיטונים (₪50)</option>
-            <option value={8000}>8,000 זיטונים (₪80)</option>
-            <option value={10000}>10,000 זיטונים (₪100)</option>
-            <option value={20000}>20,000 זיטונים (₪200)</option>
-            <option value={40000}>40,000 זיטונים (₪400)</option>
-            <option value={50000}>50,000 זיטונים (₪500)</option>
-            <option value={80000}>80,000 זיטונים (₪800)</option>
-            <option value={100000}>100,000 זיטונים (₪1,000)</option>
-            <option value={200000}>200,000 זיטונים (₪2,000)</option>
-            <option value={400000}>400,000 זיטונים (₪4,000)</option>
-            <option value={500000}>500,000 זיטונים (₪5,000)</option>
-            <option value={800000}>800,000 זיטונים (₪8,000)</option>
-            <option value={1000000}>1,000,000 זיטונים (₪10,000)</option>
-            <option value="custom">אחר (הזן סכום מותאם)</option>
-          </select>
-
-          {showCustomInput && (
-            <input
-              type="number"
-              min="0"
-              value={customAmount}
-              onChange={(e) => {
-                setCustomAmount(e.target.value);
-                const val = Number(e.target.value);
-                if (!isNaN(val)) {
-                  setAmount(val);
-                }
-              }}
-              placeholder="הזן זיטונים"
-              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-lg"
-            />
-          )}
-
-          <button
-            onClick={handleRequest}
-            disabled={loading || !game.isActive}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-xl flex items-center justify-center gap-3 shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <>
-                <Coins />
-                בקש כניסה נוספת ({formatChips(amount)})
-              </>
-            )}
-          </button>
-
-          {!game.isActive && (
-            <p className="text-center text-rose-500 font-bold">המשחק הסתיים</p>
-          )}
-        </div>
+      {/* Request Buy-in Button - Only if logged in and is a player */}
+      {currentUser && player && game.isActive && (
+        <Link
+          href={`/game/${game._id}/request-buyin`}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-xl flex items-center justify-center gap-3 shadow-lg shadow-blue-900/20 transition"
+        >
+          <Plus className="w-5 h-5" />
+          בקשה לכניסה נוספת
+        </Link>
       )}
 
       {/* Logout Button - Only if logged in */}

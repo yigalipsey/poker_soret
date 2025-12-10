@@ -27,6 +27,7 @@ import { TiltCard } from "@/components/ui/TiltCard";
 import { Avatar } from "@/components/ui/Avatar";
 import ClubLoginScreen from "@/components/ClubLoginScreen";
 import ClubLogoutButton from "@/components/ClubLogoutButton";
+import QuickBuyInRequest from "@/components/QuickBuyInRequest";
 
 export const dynamic = "force-dynamic";
 
@@ -99,52 +100,62 @@ export default async function Home() {
             0
           );
           return (
-            <Link href={`/game/${activeGame._id}`}>
-              <TiltCard
-                className="mb-8 cursor-pointer"
-                glowColor="rgba(244, 63, 94, 0.3)"
-              >
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-rose-500 to-orange-500 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse-slow"></div>
-                <div className="relative glass-card p-4 rounded-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-rose-500/20 rounded-full flex items-center justify-center animate-pulse">
-                        <PlayCircle className="w-6 h-6 text-rose-500" />
+            <div className="mb-8">
+              <Link href={`/game/${activeGame._id}`}>
+                <TiltCard
+                  className="cursor-pointer"
+                  glowColor="rgba(244, 63, 94, 0.3)"
+                >
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-rose-500 to-orange-500 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse-slow"></div>
+                  <div className="relative glass-card p-4 rounded-xl">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-rose-500/20 rounded-full flex items-center justify-center animate-pulse">
+                          <PlayCircle className="w-6 h-6 text-rose-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                            משחק פעיל כעת
+                            <span className="flex h-2 w-2 relative">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                            </span>
+                          </h3>
+                          <p className="text-slate-400 text-sm">
+                            {activeGame.players.length} שחקנים בשולחן
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-white transition-transform group-hover:translate-x-1" />
+                    </div>
+                    <div className="pt-3 border-t border-slate-700/50 grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">
+                          סך זיטונים
+                        </div>
+                        <div className="text-lg font-bold text-emerald-400 font-mono">
+                          {formatChips(totalChipsInPot)}
+                        </div>
                       </div>
                       <div>
-                        <h3 className="font-bold text-white text-lg flex items-center gap-2">
-                          משחק פעיל כעת
-                          <span className="flex h-2 w-2 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                          </span>
-                        </h3>
-                        <p className="text-slate-400 text-sm">
-                          {activeGame.players.length} שחקנים בשולחן
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-white transition-transform group-hover:translate-x-1" />
-                  </div>
-                  <div className="pt-3 border-t border-slate-700/50 grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-xs text-slate-500 mb-1">
-                        סך זיטונים
-                      </div>
-                      <div className="text-lg font-bold text-emerald-400 font-mono">
-                        {formatChips(totalChipsInPot)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500 mb-1">בשקלים</div>
-                      <div className="text-lg font-bold text-emerald-400">
-                        {formatShekels(chipsToShekels(totalChipsInPot))}
+                        <div className="text-xs text-slate-500 mb-1">
+                          בשקלים
+                        </div>
+                        <div className="text-lg font-bold text-emerald-400">
+                          {formatShekels(chipsToShekels(totalChipsInPot))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </TiltCard>
-            </Link>
+                </TiltCard>
+              </Link>
+              <div className="mt-3">
+                <QuickBuyInRequest
+                  game={activeGame}
+                  currentUser={currentUser}
+                />
+              </div>
+            </div>
           );
         })()}
 

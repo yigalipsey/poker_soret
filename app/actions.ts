@@ -252,6 +252,70 @@ export async function adminAddBuyIn(
   revalidatePath("/admin");
 }
 
+export async function cancelBuyIn(
+  gameId: string,
+  userId: string,
+  requestId: string
+) {
+  await connectDB();
+  const game = await GameSession.findById(gameId);
+  if (!game) throw new Error("Game not found");
+
+  const player = game.players.find((p) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
+  if (!player) throw new Error("Player not found");
+
+  const request = player.buyInRequests.find(
+    (r: any) => r._id.toString() === requestId
+  );
+  if (!request) throw new Error("Request not found");
+
+  if (request.status !== "approved") {
+    throw new Error("Can only cancel approved buy-ins");
+  }
+
+  // הסרת הכניסה מה-totalApprovedBuyIn
+  player.totalApprovedBuyIn -= request.amount;
+  if (player.totalApprovedBuyIn < 0) {
+    player.totalApprovedBuyIn = 0;
+  }
+
+  // מחיקת הבקשה מהרשימה
+  player.buyInRequests = player.buyInRequests.filter(
+    (r: any) => r._id.toString() !== requestId
+  );
+
+  await game.save();
+  revalidatePath("/admin");
+  revalidatePath(`/game/${gameId}`);
+}
+
+export async function removePlayerFromGame(gameId: string, userId: string) {
+  await connectDB();
+  const game = await GameSession.findById(gameId);
+  if (!game) throw new Error("Game not found");
+
+  if (!game.isActive) {
+    throw new Error("Can only remove players from active games");
+  }
+
+  // הסרת השחקן מהמשחק
+  game.players = game.players.filter((p: any) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId !== userId;
+  });
+
+  await game.save();
+  revalidatePath("/admin");
+  revalidatePath(`/game/${gameId}`);
+}
+
 export async function endGame(
   gameId: string,
   cashOutData: Record<string, number>
