@@ -35,12 +35,21 @@ export default function CreateGameForm({
 
   const chipOptions = [
     { value: 0, label: "0" },
-    { value: 10000, label: "10,000 (₪10)" },
-    { value: 20000, label: "20,000 (₪20)" },
-    { value: 50000, label: "50,000 (₪50)" },
-    { value: 100000, label: "100,000 (₪100)" },
-    { value: 200000, label: "200,000 (₪200)" },
-    { value: 500000, label: "500,000 (₪500)" },
+    { value: 2000, label: "2,000 (₪20)" },
+    { value: 4000, label: "4,000 (₪40)" },
+    { value: 5000, label: "5,000 (₪50)" },
+    { value: 8000, label: "8,000 (₪80)" },
+    { value: 10000, label: "10,000 (₪100)" },
+    { value: 20000, label: "20,000 (₪200)" },
+    { value: 40000, label: "40,000 (₪400)" },
+    { value: 50000, label: "50,000 (₪500)" },
+    { value: 80000, label: "80,000 (₪800)" },
+    { value: 100000, label: "100,000 (₪1,000)" },
+    { value: 200000, label: "200,000 (₪2,000)" },
+    { value: 400000, label: "400,000 (₪4,000)" },
+    { value: 500000, label: "500,000 (₪5,000)" },
+    { value: 800000, label: "800,000 (₪8,000)" },
+    { value: 1000000, label: "1,000,000 (₪10,000)" },
     { value: "custom", label: "אחר" },
   ];
 

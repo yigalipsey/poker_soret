@@ -29,7 +29,7 @@ export default async function ClubManagement({ clubId }: { clubId: string }) {
       {/* Chips Per Shekel Settings */}
       <ChipsPerShekelSettings
         clubId={clubId}
-        currentValue={club?.chipsPerShekel || 1000}
+        currentValue={club?.chipsPerShekel || 100}
       />
     </div>
   );

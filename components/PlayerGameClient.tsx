@@ -289,12 +289,21 @@ export default function PlayerGameClient({
             }}
             className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-lg font-medium"
           >
-            <option value={10000}>10,000 זיטונים (₪10)</option>
-            <option value={20000}>20,000 זיטונים (₪20)</option>
-            <option value={50000}>50,000 זיטונים (₪50)</option>
-            <option value={100000}>100,000 זיטונים (₪100)</option>
-            <option value={200000}>200,000 זיטונים (₪200)</option>
-            <option value={500000}>500,000 זיטונים (₪500)</option>
+            <option value={2000}>2,000 זיטונים (₪20)</option>
+            <option value={4000}>4,000 זיטונים (₪40)</option>
+            <option value={5000}>5,000 זיטונים (₪50)</option>
+            <option value={8000}>8,000 זיטונים (₪80)</option>
+            <option value={10000}>10,000 זיטונים (₪100)</option>
+            <option value={20000}>20,000 זיטונים (₪200)</option>
+            <option value={40000}>40,000 זיטונים (₪400)</option>
+            <option value={50000}>50,000 זיטונים (₪500)</option>
+            <option value={80000}>80,000 זיטונים (₪800)</option>
+            <option value={100000}>100,000 זיטונים (₪1,000)</option>
+            <option value={200000}>200,000 זיטונים (₪2,000)</option>
+            <option value={400000}>400,000 זיטונים (₪4,000)</option>
+            <option value={500000}>500,000 זיטונים (₪5,000)</option>
+            <option value={800000}>800,000 זיטונים (₪8,000)</option>
+            <option value={1000000}>1,000,000 זיטונים (₪10,000)</option>
             <option value="custom">אחר (הזן סכום מותאם)</option>
           </select>
 

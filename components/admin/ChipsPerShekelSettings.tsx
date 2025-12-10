@@ -12,7 +12,7 @@ export default function ChipsPerShekelSettings({
   currentValue?: number;
 }) {
   const [chipsPerShekel, setChipsPerShekel] = useState<string>(
-    (currentValue || 1000).toString()
+    (currentValue || 100).toString()
   );
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -93,11 +93,13 @@ export default function ChipsPerShekelSettings({
               }}
               min="1"
               className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 outline-none transition text-right"
-              placeholder="1000"
+              placeholder="100"
             />
             <button
               onClick={handleSave}
-              disabled={loading || chipsPerShekel === (currentValue || 1000).toString()}
+              disabled={
+                loading || chipsPerShekel === (currentValue || 100).toString()
+              }
               className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 rounded-lg font-bold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (
@@ -110,7 +112,8 @@ export default function ChipsPerShekelSettings({
             </button>
           </div>
           <p className="text-xs text-slate-500 mt-1 text-right">
-            לדוגמא: {chipsPerShekel ? parseInt(chipsPerShekel) || 1000 : 1000} צ'יפים = 1 ₪
+            לדוגמא: {chipsPerShekel ? parseInt(chipsPerShekel) || 100 : 100}{" "}
+            צ'יפים = 1 ₪
           </p>
         </div>
 

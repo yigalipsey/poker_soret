@@ -356,7 +356,7 @@ export async function endGame(
   for (const player of game.players) {
     const userId = player.userId._id ? player.userId._id : player.userId;
     const netProfit = player.netProfit || 0;
-    const balanceChange = chipsToShekels(netProfit); // המרה משקלים (1000 זיטונים = 1 שקל)
+    const balanceChange = chipsToShekels(netProfit); // המרה משקלים (100 זיטונים = 1 שקל)
 
     if (balanceChange !== 0) {
       const updatedUser = await User.findByIdAndUpdate(
@@ -376,7 +376,7 @@ export async function endGame(
   // חישוב אוטומטי של ההתחשבנות אחרי סיום המשחק
   // חשוב: אם יש שגיאה, המשחק כבר נשמר כלא פעיל, רק ההתחשבנות לא תישמר
   try {
-    // המרת זיטונים לשקלים לפני חישוב ההתחשבנות (1000 זיטונים = 1 שקל)
+    // המרת זיטונים לשקלים לפני חישוב ההתחשבנות (100 זיטונים = 1 שקל)
     // משתמשים ב-game שכבר מעודכן עם netProfit
     const balances = game.players.map((p: any) => {
       const netProfit = p.netProfit || 0;
@@ -834,9 +834,9 @@ export async function getChipsPerShekel(clubId?: string): Promise<number> {
   await connectDB();
   if (!clubId) {
     const currentClubId = await getClubSession();
-    if (!currentClubId) return 1000; // default
+    if (!currentClubId) return 100; // default
     clubId = currentClubId;
   }
   const club = await Club.findById(clubId).select("chipsPerShekel").lean();
-  return club?.chipsPerShekel || 1000;
+  return club?.chipsPerShekel || 100;
 }

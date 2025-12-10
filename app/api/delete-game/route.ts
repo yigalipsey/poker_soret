@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import GameSession from "@/models/GameSession";
+import User from "@/models/User";
 import { getClubSession } from "@/app/actions";
 import { revalidatePath } from "next/cache";
+import { chipsToShekels } from "@/lib/utils";
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -19,8 +21,8 @@ export async function DELETE(request: NextRequest) {
 
     const clubId = await getClubSession();
 
-    // Find the game
-    const game = await GameSession.findById(gameId);
+    // Find the game with populated players
+    const game = await GameSession.findById(gameId).populate("players.userId");
 
     if (!game) {
       return NextResponse.json({ error: "משחק לא נמצא" }, { status: 404 });
@@ -32,6 +34,37 @@ export async function DELETE(request: NextRequest) {
         { error: "אין הרשאה למחוק משחק זה" },
         { status: 403 }
       );
+    }
+
+    // אם המשחק כבר הסתיים (isActive = false), צריך להחזיר את המאזן בחזרה
+    // כי המאזן עודכן בסיום המשחק
+    if (!game.isActive && game.players && game.players.length > 0) {
+      for (const player of game.players) {
+        const userId = player.userId._id ? player.userId._id : player.userId;
+        const netProfit = player.netProfit || 0;
+
+        // אם יש רווח/הפסד, נחזיר את המאזן בחזרה
+        if (netProfit !== 0) {
+          const balanceChange = chipsToShekels(netProfit);
+          // מחסירים את הרווח/הפסד (מחזירים את המאזן למצב הקודם)
+          const balanceReversal = -balanceChange;
+
+          const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $inc: { globalBalance: balanceReversal } },
+            { new: true }
+          );
+
+          console.log(
+            `Reverted globalBalance for player ${
+              updatedUser?.name || userId
+            }: ` +
+              `${balanceReversal} ₪ (netProfit was: ${netProfit} chips, new balance: ${
+                updatedUser?.globalBalance || 0
+              } ₪)`
+          );
+        }
+      }
     }
 
     // Delete the game
