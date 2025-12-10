@@ -174,6 +174,43 @@ export default function PlayerGameClient({
         </div>
       )}
 
+      {/* Pot Summary */}
+      {(() => {
+        const totalChipsInPot = game.players.reduce(
+          (sum: number, p: any) => sum + (p.totalApprovedBuyIn || 0),
+          0
+        );
+        return (
+          <div className="glass p-4 rounded-xl">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Coins className="w-4 h-4" />
+              סיכום קופה
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
+                <div className="text-xs text-slate-500 mb-1">סך זיטונים</div>
+                <div className="text-lg font-bold text-emerald-400 font-mono">
+                  {formatChips(totalChipsInPot)}
+                </div>
+              </div>
+              <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
+                <div className="text-xs text-slate-500 mb-1">בשקלים</div>
+                <div className="text-lg font-bold text-emerald-400">
+                  {formatShekels(chipsToShekels(totalChipsInPot))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-700/50">
+              <div className="text-xs text-slate-500 mb-1">כניסות כוללות</div>
+              <div className="text-sm font-bold text-amber-400 font-mono">
+                {formatChips(totalChipsInPot)} (
+                {formatShekels(chipsToShekels(totalChipsInPot))})
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Buy-in History */}
       {approvedBuyIns.length > 0 && (
         <div className="glass p-4 rounded-xl">
