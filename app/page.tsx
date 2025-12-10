@@ -229,10 +229,11 @@ export default async function Home() {
 
         <div className="grid gap-4">
           {sortedUsers.map((user: any, index: number) => (
-            <div
+            <Link
+              href={`/player/${user._id}`}
               key={user._id}
               className={cn(
-                "relative overflow-hidden rounded-2xl p-4 transition-all duration-300 animate-slide-up group",
+                "relative overflow-hidden rounded-2xl p-4 transition-all duration-300 animate-slide-up group cursor-pointer",
                 index < 3
                   ? "glass-card border-amber-500/20"
                   : "glass border-slate-700/30 hover:bg-slate-800/60"
@@ -323,7 +324,7 @@ export default async function Home() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
 
           {users.length === 0 && (

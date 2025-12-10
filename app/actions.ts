@@ -840,3 +840,33 @@ export async function getChipsPerShekel(clubId?: string): Promise<number> {
   const club = await Club.findById(clubId).select("chipsPerShekel").lean();
   return club?.chipsPerShekel || 100;
 }
+
+export async function getPlayerGameHistory(
+  userId: string,
+  clubId?: string
+): Promise<any[]> {
+  await connectDB();
+  const query: any = { isActive: false };
+  if (clubId) {
+    query.clubId = clubId;
+  }
+  // מציאת כל המשחקים שבהם השחקן השתתף
+  const games = await GameSession.find(query)
+    .sort({ date: -1 })
+    .populate("players.userId")
+    .populate("settlementTransfers.payerId")
+    .populate("settlementTransfers.receiverId")
+    .lean();
+
+  // סינון רק משחקים שבהם השחקן השתתף
+  const playerGames = games.filter((game: any) =>
+    game.players.some((p: any) => {
+      const playerId = p.userId._id
+        ? p.userId._id.toString()
+        : p.userId.toString();
+      return playerId === userId;
+    })
+  );
+
+  return JSON.parse(JSON.stringify(playerGames));
+}
