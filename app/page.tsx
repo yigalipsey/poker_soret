@@ -149,7 +149,7 @@ export default async function Home() {
                   </div>
                 </TiltCard>
               </Link>
-              <div className="mt-3">
+              <div className="mt-[13px]">
                 <QuickBuyInRequest
                   game={activeGame}
                   currentUser={currentUser}
@@ -184,7 +184,7 @@ export default async function Home() {
                     <div className="text-xs text-slate-500">
                       מחזור: ₪
                       {chipsToShekels(
-                        lastGame.players.reduce(
+                        (lastGame.players || []).reduce(
                           (acc: number, p: any) =>
                             acc + (p.totalApprovedBuyIn || 0),
                           0
@@ -195,23 +195,27 @@ export default async function Home() {
                 </div>
 
                 {/* Winner of last game */}
-                <div className="text-right">
-                  <div className="text-xs text-slate-500 mb-0.5">
-                    המרוויח הגדול
+                {lastGame.players && lastGame.players.length > 0 && (
+                  <div className="text-right">
+                    <div className="text-xs text-slate-500 mb-0.5">
+                      המרוויח הגדול
+                    </div>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <span className="font-bold text-emerald-400">
+                        {(() => {
+                          const winner = lastGame.players.reduce(
+                            (prev: any, current: any) =>
+                              prev.netProfit > current.netProfit
+                                ? prev
+                                : current
+                          );
+                          return winner.userId.name;
+                        })()}
+                      </span>
+                      <Trophy className="w-3 h-3 text-amber-400" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 justify-end">
-                    <span className="font-bold text-emerald-400">
-                      {(() => {
-                        const winner = lastGame.players.reduce(
-                          (prev: any, current: any) =>
-                            prev.netProfit > current.netProfit ? prev : current
-                        );
-                        return winner.userId.name;
-                      })()}
-                    </span>
-                    <Trophy className="w-3 h-3 text-amber-400" />
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </Link>

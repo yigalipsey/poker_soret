@@ -24,7 +24,10 @@ export function shekelsToChips(
 }
 
 // פורמט זיטונים עם תווית
-export function formatChips(chips: number): string {
+export function formatChips(chips: number | undefined | null): string {
+  if (chips === undefined || chips === null || isNaN(chips)) {
+    return "0 זיטונים";
+  }
   return `${chips.toLocaleString()} זיטונים`;
 }
 

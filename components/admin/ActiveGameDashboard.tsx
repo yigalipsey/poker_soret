@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   approveRequest,
   rejectRequest,
@@ -45,6 +45,9 @@ export default function ActiveGameDashboard({
   const [expandedBuyIn, setExpandedBuyIn] = useState<
     Record<string, string | null>
   >({});
+  const [expandedPlayer, setExpandedPlayer] = useState<Record<string, boolean>>(
+    {}
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [editingCashOut, setEditingCashOut] = useState<Record<string, boolean>>(
     {}
@@ -58,60 +61,6 @@ export default function ActiveGameDashboard({
   const [cashOutAmount, setCashOutAmount] = useState<number>(0);
   const [showCustomCashOutAmount, setShowCustomCashOutAmount] = useState(false);
   const router = useRouter();
-
-  // Long press handlers
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const longPressTargetRef = useRef<{
-    type: "player" | "buyin";
-    data: any;
-  } | null>(null);
-  const wasLongPressRef = useRef<boolean>(false);
-
-  const handleLongPressStart = (
-    type: "player" | "buyin",
-    data: any,
-    e: React.MouseEvent | React.TouchEvent
-  ) => {
-    wasLongPressRef.current = false;
-    longPressTargetRef.current = { type, data };
-    longPressTimerRef.current = setTimeout(() => {
-      wasLongPressRef.current = true;
-      if (type === "player") {
-        if (
-          confirm(
-            `האם אתה בטוח שברצונך להסיר את ${data.userId.name} מהמשחק? כל הכניסות שלו יימחקו.`
-          )
-        ) {
-          handleRemovePlayer(data);
-        }
-      } else if (type === "buyin") {
-        if (
-          confirm(
-            `האם אתה בטוח שברצונך למחוק כניסה זו של ${formatChips(
-              data.amount
-            )}?`
-          )
-        ) {
-          handleCancelBuyInAction(data);
-        }
-      }
-      longPressTargetRef.current = null;
-    }, 500); // 500ms for long press
-  };
-
-  const handleLongPressEnd = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-    // Reset after a short delay to allow click event to check
-    setTimeout(() => {
-      if (!wasLongPressRef.current) {
-        longPressTargetRef.current = null;
-      }
-      wasLongPressRef.current = false;
-    }, 100);
-  };
 
   const handleRemovePlayer = async (player: any) => {
     try {
@@ -371,35 +320,6 @@ export default function ActiveGameDashboard({
         </section>
       )}
 
-      {/* Pot Summary */}
-      <section className="glass-card p-6 rounded-2xl mb-6">
-        <h2 className="text-xl font-bold text-slate-200 mb-4">סיכום קופה</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">
-              סך זיטונים במשחק
-            </div>
-            <div className="text-2xl font-bold text-emerald-400 font-mono mb-1">
-              {formatChips(totalChipsInPot)}
-            </div>
-            <div className="text-xs text-slate-500">
-              {formatShekels(chipsToShekels(totalChipsInPot))}
-            </div>
-          </div>
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">
-              כניסות כוללות
-            </div>
-            <div className="text-2xl font-bold text-amber-400 font-mono mb-1">
-              {formatChips(totalChipsInPot)}
-            </div>
-            <div className="text-xs text-slate-500">
-              {formatShekels(chipsToShekels(totalChipsInPot))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Active Players */}
       <section className="glass-card p-6 rounded-2xl">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -585,503 +505,510 @@ export default function ActiveGameDashboard({
         )}
 
         <div className="space-y-4">
-          {game.players.map((p: any) => (
-            <div
-              key={p.userId._id}
-              className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4"
-              onMouseDown={(e) => handleLongPressStart("player", p, e)}
-              onMouseUp={handleLongPressEnd}
-              onMouseLeave={handleLongPressEnd}
-              onTouchStart={(e) => handleLongPressStart("player", p, e)}
-              onTouchEnd={handleLongPressEnd}
-            >
-              {/* שם השחקן */}
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-3">
-                  <Avatar
-                    name={p.userId.name}
-                    imageUrl={p.userId.avatarUrl}
-                    size="md"
-                  />
-                  <span className="font-medium text-slate-300 text-lg">
-                    {p.userId.name}
-                  </span>
-                  {p.isCashedOut && (
-                    <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">
-                      יצא
+          {game.players.map((p: any) => {
+            const playerId = p.userId._id?.toString() || p.userId.toString();
+            const isPlayerExpanded = expandedPlayer[playerId];
+            return (
+              <div
+                key={p.userId._id}
+                className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 relative"
+              >
+                {/* שם השחקן */}
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div
+                    className="flex items-center gap-3 cursor-pointer flex-1"
+                    onClick={() => {
+                      setExpandedPlayer((prev) => ({
+                        ...prev,
+                        [playerId]: !prev[playerId],
+                      }));
+                    }}
+                  >
+                    <Avatar
+                      name={p.userId.name}
+                      imageUrl={p.userId.avatarUrl}
+                      size="md"
+                    />
+                    <span className="font-medium text-slate-300 text-lg">
+                      {p.userId.name}
                     </span>
-                  )}
+                    {p.isCashedOut && (
+                      <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">
+                        יצא
+                      </span>
+                    )}
+                  </div>
+                  {!p.isCashedOut &&
+                    !isBuyInOpen[p.userId._id] &&
+                    cashOutPlayerId !==
+                      (p.userId._id?.toString() || p.userId.toString()) && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleBuyInClick(p.userId._id)}
+                          className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg border border-emerald-500/30 transition font-medium text-sm whitespace-nowrap"
+                        >
+                          + הוסף כניסה
+                        </button>
+                        <button
+                          onClick={() => {
+                            const userIdKey =
+                              p.userId._id?.toString() || p.userId.toString();
+                            setCashOutPlayerId(userIdKey);
+                            setCashOutAmount(p.totalApprovedBuyIn || 0);
+                            setShowCustomCashOutAmount(false);
+                          }}
+                          className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded-lg border border-amber-500/30 transition font-medium text-sm whitespace-nowrap"
+                        >
+                          יציאה
+                        </button>
+                      </div>
+                    )}
                 </div>
-                {!p.isCashedOut &&
-                  !isBuyInOpen[p.userId._id] &&
-                  cashOutPlayerId !==
-                    (p.userId._id?.toString() || p.userId.toString()) && (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleBuyInClick(p.userId._id)}
-                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg border border-emerald-500/30 transition font-medium text-sm whitespace-nowrap"
-                      >
-                        + הוסף כניסה
-                      </button>
-                      <button
-                        onClick={() => {
-                          const userIdKey =
-                            p.userId._id?.toString() || p.userId.toString();
-                          setCashOutPlayerId(userIdKey);
-                          setCashOutAmount(p.totalApprovedBuyIn || 0);
-                          setShowCustomCashOutAmount(false);
-                        }}
-                        className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded-lg border border-amber-500/30 transition font-medium text-sm whitespace-nowrap"
-                      >
-                        יציאה
-                      </button>
-                    </div>
-                  )}
-              </div>
 
-              {/* רשימת כניסות */}
-              {!p.isCashedOut && (
-                <div className="mb-4">
-                  <div className="text-xs text-slate-500 mb-2">כניסות:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {p.buyInRequests
-                      ?.filter((req: any) => req.status === "approved")
-                      .map((req: any, idx: number) => {
-                        const buyInKey = `${p.userId._id}-${req._id || idx}`;
-                        const isExpanded = expandedBuyIn[buyInKey] === buyInKey;
-                        const timestamp = new Date(req.timestamp);
-                        const timeStr = timestamp.toLocaleTimeString("he-IL", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          timeZone: "Asia/Jerusalem",
-                        });
-                        const isInitial = req.isInitial || false;
-                        const addedBy = req.addedBy || "admin";
+                {/* Player Options Menu */}
+                {isPlayerExpanded && !p.isCashedOut && (
+                  <div className="absolute top-full right-0 mt-1 z-10 bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-lg min-w-[200px]">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (
+                          confirm(
+                            `האם אתה בטוח שברצונך להסיר את ${p.userId.name} מהמשחק? כל הכניסות שלו יימחקו.`
+                          )
+                        ) {
+                          try {
+                            setLoading(true);
+                            await removePlayerFromGame(game._id, playerId);
+                            router.refresh();
+                          } catch (error: any) {
+                            setErrorMessage(
+                              error?.message || "שגיאה בהסרת שחקן"
+                            );
+                            setTimeout(() => setErrorMessage(null), 5000);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }
+                        setExpandedPlayer((prev) => ({
+                          ...prev,
+                          [playerId]: false,
+                        }));
+                      }}
+                      className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-2 py-1.5 rounded border border-rose-500/30 transition text-[10px] font-medium flex items-center justify-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      מחק שחקן מהמשחק
+                    </button>
+                  </div>
+                )}
 
-                        return (
-                          <div key={req._id || idx} className="relative">
-                            <div
-                              onClick={() => {
-                                // Only expand if not long press
-                                if (!wasLongPressRef.current) {
+                {/* רשימת כניסות */}
+                {!p.isCashedOut && (
+                  <div className="mb-4">
+                    <div className="text-xs text-slate-500 mb-2">כניסות:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {p.buyInRequests
+                        ?.filter((req: any) => req.status === "approved")
+                        .map((req: any, idx: number) => {
+                          const buyInKey = `${p.userId._id}-${req._id || idx}`;
+                          const isExpanded =
+                            expandedBuyIn[buyInKey] === buyInKey;
+                          const timestamp = new Date(req.timestamp);
+                          const timeStr = timestamp.toLocaleTimeString(
+                            "he-IL",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              timeZone: "Asia/Jerusalem",
+                            }
+                          );
+                          const isInitial = req.isInitial || false;
+                          const addedBy = req.addedBy || "admin";
+
+                          return (
+                            <div key={req._id || idx} className="relative">
+                              <div
+                                onClick={() => {
                                   setExpandedBuyIn((prev) => ({
                                     ...prev,
                                     [buyInKey]: isExpanded ? null : buyInKey,
                                   }));
-                                }
-                              }}
-                              onMouseDown={(e) => {
-                                if (!isInitial) {
-                                  handleLongPressStart(
-                                    "buyin",
-                                    { player: p, request: req },
-                                    e
-                                  );
-                                }
-                              }}
-                              onMouseUp={handleLongPressEnd}
-                              onMouseLeave={handleLongPressEnd}
-                              onTouchStart={(e) => {
-                                if (!isInitial) {
-                                  handleLongPressStart(
-                                    "buyin",
-                                    { player: p, request: req },
-                                    e
-                                  );
-                                }
-                              }}
-                              onTouchEnd={handleLongPressEnd}
-                              className={cn(
-                                "bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-emerald-400 font-mono text-sm cursor-pointer hover:bg-emerald-500/30 transition relative",
-                                !isInitial && "cursor-pointer"
-                              )}
-                              title={
-                                !isInitial
-                                  ? "לחיצה ממושכת למחיקת כניסה"
-                                  : undefined
-                              }
-                            >
-                              {formatChips(req.amount)}
-                            </div>
-                            {isExpanded && (
-                              <div className="absolute top-full right-0 mt-1 z-10 bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-lg min-w-[200px]">
-                                <div className="flex items-center justify-between gap-3 mb-1">
-                                  <span className="text-slate-400">שעה:</span>
-                                  <span className="text-slate-300 font-medium">
-                                    {timeStr}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-3 mb-2">
-                                  <span className="text-slate-400">סוג:</span>
-                                  <div className="flex items-center gap-1 flex-wrap justify-end">
-                                    {isInitial && (
-                                      <span className="bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded text-[10px]">
-                                        ראשונית
-                                      </span>
-                                    )}
-                                    <span className="text-slate-300 text-[10px]">
-                                      {addedBy === "admin"
-                                        ? "👤 מנהל"
-                                        : "👤 משתמש"}
+                                }}
+                                className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-emerald-400 font-mono text-sm cursor-pointer hover:bg-emerald-500/30 transition relative"
+                              >
+                                {formatChips(req.amount)}
+                              </div>
+                              {isExpanded && (
+                                <div className="absolute top-full right-0 mt-1 z-10 bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-lg min-w-[200px]">
+                                  <div className="flex items-center justify-between gap-3 mb-1">
+                                    <span className="text-slate-400">שעה:</span>
+                                    <span className="text-slate-300 font-medium">
+                                      {timeStr}
                                     </span>
                                   </div>
+                                  <div className="flex items-center justify-between gap-3 mb-2">
+                                    <span className="text-slate-400">סוג:</span>
+                                    <div className="flex items-center gap-1 flex-wrap justify-end">
+                                      {isInitial && (
+                                        <span className="bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded text-[10px]">
+                                          ראשונית
+                                        </span>
+                                      )}
+                                      <span className="text-slate-300 text-[10px]">
+                                        {addedBy === "admin"
+                                          ? "👤 מנהל"
+                                          : "👤 משתמש"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {!isInitial && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (
+                                          !confirm(
+                                            `האם אתה בטוח שברצונך למחוק כניסה זו של ${formatChips(
+                                              req.amount
+                                            )}?`
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        try {
+                                          setLoading(true);
+                                          await cancelBuyIn(
+                                            game._id,
+                                            p.userId._id?.toString() ||
+                                              p.userId.toString(),
+                                            req._id.toString()
+                                          );
+                                          router.refresh();
+                                        } catch (error: any) {
+                                          setErrorMessage(
+                                            error?.message ||
+                                              "שגיאה במחיקת כניסה"
+                                          );
+                                          setTimeout(
+                                            () => setErrorMessage(null),
+                                            5000
+                                          );
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      }}
+                                      className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-2 py-1.5 rounded border border-rose-500/30 transition text-[10px] font-medium flex items-center justify-center gap-1 mt-2"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                      מחק כניסה
+                                    </button>
+                                  )}
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    {(!p.buyInRequests ||
-                      p.buyInRequests.filter(
-                        (req: any) => req.status === "approved"
-                      ).length === 0) && (
-                      <span className="text-slate-500 text-sm">אין כניסות</span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* טופס יציאה */}
-              {!p.isCashedOut &&
-                cashOutPlayerId ===
-                  (p.userId._id?.toString() || p.userId.toString()) && (
-                  <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-amber-400">
-                        יציאה מהמשחק
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setCashOutPlayerId(null);
-                          setCashOutAmount(0);
-                          setShowCustomCashOutAmount(false);
-                        }}
-                        className="text-slate-400 hover:text-slate-300 transition"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      {(!p.buyInRequests ||
+                        p.buyInRequests.filter(
+                          (req: any) => req.status === "approved"
+                        ).length === 0) && (
+                        <span className="text-slate-500 text-sm">
+                          אין כניסות
+                        </span>
+                      )}
                     </div>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-slate-500 mb-2 block">
-                          סכום יציאה (זיטונים)
-                        </label>
-                        <div className="flex gap-2">
-                          <select
-                            value={
-                              showCustomCashOutAmount
-                                ? "custom"
-                                : cashOutAmount || ""
-                            }
-                            onChange={(e) => {
-                              if (e.target.value === "custom") {
-                                setShowCustomCashOutAmount(true);
-                              } else {
-                                setShowCustomCashOutAmount(false);
-                                setCashOutAmount(Number(e.target.value));
-                              }
-                            }}
-                            className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
-                          >
-                            <option value="">בחר סכום יציאה</option>
-                            {chipOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          {showCustomCashOutAmount && (
-                            <input
-                              type="number"
-                              min="0"
-                              value={cashOutAmount || ""}
-                              onChange={(e) =>
-                                setCashOutAmount(Number(e.target.value))
-                              }
-                              placeholder="הזן זיטונים"
-                              className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
-                            />
-                          )}
-                        </div>
-                        <div className="mt-2 text-xs text-slate-500">
-                          כניסה כוללת: {formatChips(p.totalApprovedBuyIn)} (
-                          {chipsToShekels(p.totalApprovedBuyIn).toFixed(2)} ₪)
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={async () => {
-                            if (!cashOutAmount && cashOutAmount !== 0) {
-                              setErrorMessage("נא להזין סכום יציאה");
-                              setTimeout(() => setErrorMessage(null), 3000);
-                              return;
-                            }
-                            try {
-                              setLoading(true);
-                              const userIdKey =
-                                p.userId._id?.toString() || p.userId.toString();
-                              await cashOutPlayer(
-                                game._id,
-                                userIdKey,
-                                cashOutAmount
-                              );
-                              setCashOutPlayerId(null);
-                              setCashOutAmount(0);
-                              setShowCustomCashOutAmount(false);
-                              router.refresh();
-                            } catch (error: any) {
-                              setErrorMessage(
-                                error?.message || "שגיאה ביציאה מהמשחק"
-                              );
-                              setTimeout(() => setErrorMessage(null), 5000);
-                            } finally {
-                              setLoading(false);
-                            }
-                          }}
-                          disabled={
-                            loading || (!cashOutAmount && cashOutAmount !== 0)
-                          }
-                          className="flex-1 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              מבצע יציאה...
-                            </>
-                          ) : (
-                            <>
-                              <LogOut className="w-4 h-4" />
-                              אישר יציאה
-                            </>
-                          )}
-                        </button>
+                  </div>
+                )}
+
+                {/* טופס יציאה */}
+                {!p.isCashedOut &&
+                  cashOutPlayerId ===
+                    (p.userId._id?.toString() || p.userId.toString()) && (
+                    <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-medium text-amber-400">
+                          יציאה מהמשחק
+                        </h3>
                         <button
                           onClick={() => {
                             setCashOutPlayerId(null);
                             setCashOutAmount(0);
                             setShowCustomCashOutAmount(false);
                           }}
-                          className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition"
+                          className="text-slate-400 hover:text-slate-300 transition"
                         >
-                          ביטול
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
-                    </div>
-                  </div>
-                )}
-
-              {/* פעולות */}
-              {!p.isCashedOut &&
-                cashOutPlayerId !==
-                  (p.userId._id?.toString() || p.userId.toString()) && (
-                  <div className="space-y-3">
-                    {/* כניסה חדשה - מפושט */}
-                    {isBuyInOpen[p.userId._id] && (
-                      <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 space-y-3">
-                        <div className="text-sm text-slate-400 text-center mb-1">
-                          בחר סכום כניסה:
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs text-slate-500 mb-2 block">
+                            סכום יציאה (זיטונים)
+                          </label>
+                          <div className="flex gap-2">
+                            <select
+                              value={
+                                showCustomCashOutAmount
+                                  ? "custom"
+                                  : cashOutAmount || ""
+                              }
+                              onChange={(e) => {
+                                if (e.target.value === "custom") {
+                                  setShowCustomCashOutAmount(true);
+                                } else {
+                                  setShowCustomCashOutAmount(false);
+                                  setCashOutAmount(Number(e.target.value));
+                                }
+                              }}
+                              className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
+                            >
+                              <option value="">בחר סכום יציאה</option>
+                              {chipOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            {showCustomCashOutAmount && (
+                              <input
+                                type="number"
+                                min="0"
+                                value={cashOutAmount || ""}
+                                onChange={(e) =>
+                                  setCashOutAmount(Number(e.target.value))
+                                }
+                                placeholder="הזן זיטונים"
+                                className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
+                              />
+                            )}
+                          </div>
+                          <div className="mt-2 text-xs text-slate-500">
+                            כניסה כוללת: {formatChips(p.totalApprovedBuyIn)} (
+                            {chipsToShekels(p.totalApprovedBuyIn).toFixed(2)} ₪)
+                          </div>
                         </div>
-                        <div className="flex gap-2 items-center">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              if (!cashOutAmount && cashOutAmount !== 0) {
+                                setErrorMessage("נא להזין סכום יציאה");
+                                setTimeout(() => setErrorMessage(null), 3000);
+                                return;
+                              }
+                              try {
+                                setLoading(true);
+                                const userIdKey =
+                                  p.userId._id?.toString() ||
+                                  p.userId.toString();
+                                await cashOutPlayer(
+                                  game._id,
+                                  userIdKey,
+                                  cashOutAmount
+                                );
+                                setCashOutPlayerId(null);
+                                setCashOutAmount(0);
+                                setShowCustomCashOutAmount(false);
+                                router.refresh();
+                              } catch (error: any) {
+                                setErrorMessage(
+                                  error?.message || "שגיאה ביציאה מהמשחק"
+                                );
+                                setTimeout(() => setErrorMessage(null), 5000);
+                              } finally {
+                                setLoading(false);
+                              }
+                            }}
+                            disabled={
+                              loading || (!cashOutAmount && cashOutAmount !== 0)
+                            }
+                            className="flex-1 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          >
+                            {loading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                מבצע יציאה...
+                              </>
+                            ) : (
+                              <>
+                                <LogOut className="w-4 h-4" />
+                                אישר יציאה
+                              </>
+                            )}
+                          </button>
                           <button
                             onClick={() => {
-                              const amount = buyInAmounts[p.userId._id] || 0;
-                              if (amount > 0) {
-                                import("@/app/actions").then((mod) =>
-                                  mod.adminAddBuyIn(
-                                    game._id,
-                                    p.userId._id,
-                                    amount
-                                  )
-                                );
-                                setIsBuyInOpen((prev) => ({
-                                  ...prev,
-                                  [p.userId._id]: false,
-                                }));
-                                router.refresh();
-                              }
+                              setCashOutPlayerId(null);
+                              setCashOutAmount(0);
+                              setShowCustomCashOutAmount(false);
                             }}
-                            disabled={(buyInAmounts[p.userId._id] || 0) === 0}
-                            className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium whitespace-nowrap"
-                          >
-                            אשר כניסה
-                          </button>
-                          <select
-                            value={
-                              showCustomBuyIn[p.userId._id]
-                                ? "custom"
-                                : buyInAmounts[p.userId._id] || 0
-                            }
-                            onChange={(e) => {
-                              if (e.target.value === "custom") {
-                                setShowCustomBuyIn((prev) => ({
-                                  ...prev,
-                                  [p.userId._id]: true,
-                                }));
-                              } else {
-                                setShowCustomBuyIn((prev) => ({
-                                  ...prev,
-                                  [p.userId._id]: false,
-                                }));
-                                setBuyInAmounts((prev) => ({
-                                  ...prev,
-                                  [p.userId._id]: Number(e.target.value),
-                                }));
-                              }
-                            }}
-                            className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                          >
-                            {chipOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => handleCancelBuyIn(p.userId._id)}
-                            className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition text-sm font-medium whitespace-nowrap"
+                            className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition"
                           >
                             ביטול
                           </button>
                         </div>
-
-                        {showCustomBuyIn[p.userId._id] && (
-                          <input
-                            type="number"
-                            min="0"
-                            value={buyInAmounts[p.userId._id] || ""}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setBuyInAmounts((prev) => ({
-                                ...prev,
-                                [p.userId._id]: val,
-                              }));
-                            }}
-                            placeholder="הזן זיטונים"
-                            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                          />
-                        )}
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {/* יציאה - רק בסיום משחק */}
-                    {ending &&
-                      !p.isCashedOut &&
-                      (() => {
-                        return (
-                          <div className="space-y-2 pt-2 border-t border-slate-700/50">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-xs text-slate-500">
-                                יציאה (זיטונים):
-                              </div>
-                              {errorMessage &&
-                                cashOuts[p.userId._id.toString()] !==
-                                  undefined && (
-                                  <button
-                                    onClick={() => {
-                                      setCashOuts((prev) => {
-                                        const newState = { ...prev };
-                                        delete newState[
-                                          p.userId._id.toString()
-                                        ];
-                                        return newState;
-                                      });
-                                    }}
-                                    className="text-xs text-amber-400 hover:text-amber-300 transition"
-                                  >
-                                    ✏️ חישוב מחדש
-                                  </button>
-                                )}
-                            </div>
-                            <div className="flex gap-2 items-center flex-wrap">
-                              <select
-                                value={
-                                  showCustomCashOut[p.userId._id.toString()]
-                                    ? "custom"
-                                    : cashOuts[p.userId._id.toString()] ?? ""
+                {/* פעולות */}
+                {!p.isCashedOut &&
+                  cashOutPlayerId !==
+                    (p.userId._id?.toString() || p.userId.toString()) && (
+                    <div className="space-y-3">
+                      {/* כניסה חדשה - מפושט */}
+                      {isBuyInOpen[p.userId._id] && (
+                        <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 space-y-3">
+                          <div className="text-sm text-slate-400 text-center mb-1">
+                            בחר סכום כניסה:
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <button
+                              onClick={() => {
+                                const amount = buyInAmounts[p.userId._id] || 0;
+                                if (amount > 0) {
+                                  import("@/app/actions").then((mod) =>
+                                    mod.adminAddBuyIn(
+                                      game._id,
+                                      p.userId._id,
+                                      amount
+                                    )
+                                  );
+                                  setIsBuyInOpen((prev) => ({
+                                    ...prev,
+                                    [p.userId._id]: false,
+                                  }));
+                                  router.refresh();
                                 }
-                                onChange={(e) => {
-                                  const userIdKey = p.userId._id.toString();
-                                  if (e.target.value === "custom") {
-                                    setShowCustomCashOut((prev) => ({
-                                      ...prev,
-                                      [userIdKey]: true,
-                                    }));
-                                  } else {
-                                    setShowCustomCashOut((prev) => ({
-                                      ...prev,
-                                      [userIdKey]: false,
-                                    }));
-                                    const value = Number(e.target.value);
-                                    if (value > totalChipsInPot) {
-                                      setErrorMessage(
-                                        `לא ניתן להזין יותר מ-${totalChipsInPot.toLocaleString()} זיטונים (סך הקופה)`
-                                      );
-                                      setTimeout(
-                                        () => setErrorMessage(null),
-                                        5000
-                                      );
-                                      return;
-                                    }
-                                    setCashOuts({
-                                      ...cashOuts,
-                                      [userIdKey]: value,
-                                    });
-                                  }
-                                }}
-                                className={cn(
-                                  "flex-1 min-w-[150px] bg-slate-900/50 border rounded-lg px-3 py-2 text-white focus:ring-2 outline-none transition",
-                                  cashOuts[p.userId._id.toString()] ===
-                                    undefined ||
-                                    cashOuts[p.userId._id.toString()] === null
-                                    ? "border-slate-700 focus:ring-amber-500/50"
-                                    : (cashOuts[p.userId._id.toString()] || 0) >
-                                      totalChipsInPot
-                                    ? "border-rose-500/50 focus:ring-rose-500/50"
-                                    : "border-slate-700 focus:ring-amber-500/50"
-                                )}
-                              >
-                                <option value="">בחר סכום יציאה</option>
-                                {chipOptions.map((option) => (
-                                  <option
-                                    key={option.value}
-                                    value={option.value}
-                                    disabled={
-                                      option.value !== "custom" &&
-                                      option.value > totalChipsInPot
-                                    }
-                                  >
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                              {showCustomCashOut[p.userId._id.toString()] && (
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={totalChipsInPot}
+                              }}
+                              disabled={(buyInAmounts[p.userId._id] || 0) === 0}
+                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium whitespace-nowrap"
+                            >
+                              אשר כניסה
+                            </button>
+                            <select
+                              value={
+                                showCustomBuyIn[p.userId._id]
+                                  ? "custom"
+                                  : buyInAmounts[p.userId._id] || 0
+                              }
+                              onChange={(e) => {
+                                if (e.target.value === "custom") {
+                                  setShowCustomBuyIn((prev) => ({
+                                    ...prev,
+                                    [p.userId._id]: true,
+                                  }));
+                                } else {
+                                  setShowCustomBuyIn((prev) => ({
+                                    ...prev,
+                                    [p.userId._id]: false,
+                                  }));
+                                  setBuyInAmounts((prev) => ({
+                                    ...prev,
+                                    [p.userId._id]: Number(e.target.value),
+                                  }));
+                                }
+                              }}
+                              className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                            >
+                              {chipOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => handleCancelBuyIn(p.userId._id)}
+                              className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition text-sm font-medium whitespace-nowrap"
+                            >
+                              ביטול
+                            </button>
+                          </div>
+
+                          {showCustomBuyIn[p.userId._id] && (
+                            <input
+                              type="number"
+                              min="0"
+                              value={buyInAmounts[p.userId._id] || ""}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setBuyInAmounts((prev) => ({
+                                  ...prev,
+                                  [p.userId._id]: val,
+                                }));
+                              }}
+                              placeholder="הזן זיטונים"
+                              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {/* יציאה - רק בסיום משחק */}
+                      {ending &&
+                        !p.isCashedOut &&
+                        (() => {
+                          return (
+                            <div className="space-y-2 pt-2 border-t border-slate-700/50">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-xs text-slate-500">
+                                  יציאה (זיטונים):
+                                </div>
+                                {errorMessage &&
+                                  cashOuts[p.userId._id.toString()] !==
+                                    undefined && (
+                                    <button
+                                      onClick={() => {
+                                        setCashOuts((prev) => {
+                                          const newState = { ...prev };
+                                          delete newState[
+                                            p.userId._id.toString()
+                                          ];
+                                          return newState;
+                                        });
+                                      }}
+                                      className="text-xs text-amber-400 hover:text-amber-300 transition"
+                                    >
+                                      ✏️ חישוב מחדש
+                                    </button>
+                                  )}
+                              </div>
+                              <div className="flex gap-2 items-center flex-wrap">
+                                <select
                                   value={
-                                    cashOuts[p.userId._id.toString()] ?? ""
+                                    showCustomCashOut[p.userId._id.toString()]
+                                      ? "custom"
+                                      : cashOuts[p.userId._id.toString()] ?? ""
                                   }
                                   onChange={(e) => {
                                     const userIdKey = p.userId._id.toString();
-                                    const value = Number(e.target.value);
-                                    if (value > totalChipsInPot) {
-                                      setErrorMessage(
-                                        `לא ניתן להזין יותר מ-${totalChipsInPot.toLocaleString()} זיטונים (סך הקופה)`
-                                      );
-                                      setTimeout(
-                                        () => setErrorMessage(null),
-                                        5000
-                                      );
-                                      return;
+                                    if (e.target.value === "custom") {
+                                      setShowCustomCashOut((prev) => ({
+                                        ...prev,
+                                        [userIdKey]: true,
+                                      }));
+                                    } else {
+                                      setShowCustomCashOut((prev) => ({
+                                        ...prev,
+                                        [userIdKey]: false,
+                                      }));
+                                      const value = Number(e.target.value);
+                                      if (value > totalChipsInPot) {
+                                        setErrorMessage(
+                                          `לא ניתן להזין יותר מ-${totalChipsInPot.toLocaleString()} זיטונים (סך הקופה)`
+                                        );
+                                        setTimeout(
+                                          () => setErrorMessage(null),
+                                          5000
+                                        );
+                                        return;
+                                      }
+                                      setCashOuts({
+                                        ...cashOuts,
+                                        [userIdKey]: value,
+                                      });
                                     }
-                                    setCashOuts({
-                                      ...cashOuts,
-                                      [userIdKey]: value,
-                                    });
                                   }}
                                   className={cn(
-                                    "flex-1 min-w-[120px] bg-slate-900/50 border rounded-lg px-3 py-2 text-white focus:ring-2 outline-none transition",
+                                    "flex-1 min-w-[150px] bg-slate-900/50 border rounded-lg px-3 py-2 text-white focus:ring-2 outline-none transition",
                                     cashOuts[p.userId._id.toString()] ===
                                       undefined ||
                                       cashOuts[p.userId._id.toString()] === null
@@ -1091,95 +1018,208 @@ export default function ActiveGameDashboard({
                                       ? "border-rose-500/50 focus:ring-rose-500/50"
                                       : "border-slate-700 focus:ring-amber-500/50"
                                   )}
-                                  placeholder="הזן זיטונים"
-                                />
-                              )}
+                                >
+                                  <option value="">בחר סכום יציאה</option>
+                                  {chipOptions.map((option) => (
+                                    <option
+                                      key={option.value}
+                                      value={option.value}
+                                      disabled={
+                                        option.value !== "custom" &&
+                                        option.value > totalChipsInPot
+                                      }
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                {showCustomCashOut[p.userId._id.toString()] && (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={totalChipsInPot}
+                                    value={
+                                      cashOuts[p.userId._id.toString()] ?? ""
+                                    }
+                                    onChange={(e) => {
+                                      const userIdKey = p.userId._id.toString();
+                                      const value = Number(e.target.value);
+                                      if (value > totalChipsInPot) {
+                                        setErrorMessage(
+                                          `לא ניתן להזין יותר מ-${totalChipsInPot.toLocaleString()} זיטונים (סך הקופה)`
+                                        );
+                                        setTimeout(
+                                          () => setErrorMessage(null),
+                                          5000
+                                        );
+                                        return;
+                                      }
+                                      setCashOuts({
+                                        ...cashOuts,
+                                        [userIdKey]: value,
+                                      });
+                                    }}
+                                    className={cn(
+                                      "flex-1 min-w-[120px] bg-slate-900/50 border rounded-lg px-3 py-2 text-white focus:ring-2 outline-none transition",
+                                      cashOuts[p.userId._id.toString()] ===
+                                        undefined ||
+                                        cashOuts[p.userId._id.toString()] ===
+                                          null
+                                        ? "border-slate-700 focus:ring-amber-500/50"
+                                        : (cashOuts[p.userId._id.toString()] ||
+                                            0) > totalChipsInPot
+                                        ? "border-rose-500/50 focus:ring-rose-500/50"
+                                        : "border-slate-700 focus:ring-amber-500/50"
+                                    )}
+                                    placeholder="הזן זיטונים"
+                                  />
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })()}
-                  </div>
-                )}
-
-              {/* אם יצא - הצג את סכום היציאה + אפשרות לערוך אם יש שגיאה */}
-              {p.isCashedOut && (
-                <div className="space-y-2 pt-2 border-t border-slate-700/50">
-                  <div className="text-sm text-slate-400">
-                    יצא עם{" "}
-                    <span className="text-amber-400 font-mono font-bold">
-                      {formatChips(p.cashOut)}
-                    </span>
-                  </div>
-                  {errorMessage && !editingCashOut[p.userId._id.toString()] && (
-                    <button
-                      onClick={() => {
-                        const userIdKey = p.userId._id.toString();
-                        setEditingCashOut((prev) => ({
-                          ...prev,
-                          [userIdKey]: true,
-                        }));
-                        // הגדר את ה-cashOut הנוכחי לעריכה
-                        setCashOuts((prev) => ({
-                          ...prev,
-                          [userIdKey]: p.cashOut || 0,
-                        }));
-                      }}
-                      className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-3 py-1.5 rounded-lg border border-amber-500/30 transition font-medium text-sm"
-                    >
-                      ✏️ חישוב יציאה מחדש
-                    </button>
+                          );
+                        })()}
+                    </div>
                   )}
-                  {editingCashOut[p.userId._id.toString()] && (
-                    <div className="bg-slate-900/50 p-3 rounded-lg border border-amber-500/30 space-y-2">
-                      <div className="text-xs text-amber-400 mb-1">
-                        עריכת יציאה:
-                      </div>
-                      <div className="flex gap-2 items-center flex-wrap">
+
+                {/* אם יצא - הצג את סכום היציאה + אפשרות לערוך אם יש שגיאה */}
+                {p.isCashedOut && (
+                  <div className="space-y-2 pt-2 border-t border-slate-700/50">
+                    <div className="text-sm text-slate-400">
+                      יצא עם{" "}
+                      <span className="text-amber-400 font-mono font-bold">
+                        {formatChips(p.cashOut)}
+                      </span>
+                    </div>
+                    {errorMessage &&
+                      !editingCashOut[p.userId._id.toString()] && (
                         <button
-                          onClick={async () => {
-                            try {
+                          onClick={() => {
+                            const userIdKey = p.userId._id.toString();
+                            setEditingCashOut((prev) => ({
+                              ...prev,
+                              [userIdKey]: true,
+                            }));
+                            // הגדר את ה-cashOut הנוכחי לעריכה
+                            setCashOuts((prev) => ({
+                              ...prev,
+                              [userIdKey]: p.cashOut || 0,
+                            }));
+                          }}
+                          className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-3 py-1.5 rounded-lg border border-amber-500/30 transition font-medium text-sm"
+                        >
+                          ✏️ חישוב יציאה מחדש
+                        </button>
+                      )}
+                    {editingCashOut[p.userId._id.toString()] && (
+                      <div className="bg-slate-900/50 p-3 rounded-lg border border-amber-500/30 space-y-2">
+                        <div className="text-xs text-amber-400 mb-1">
+                          עריכת יציאה:
+                        </div>
+                        <div className="flex gap-2 items-center flex-wrap">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const userIdKey = p.userId._id.toString();
+                                const amount =
+                                  cashOuts[userIdKey] ?? (p.cashOut || 0);
+                                await import("@/app/actions").then((mod) =>
+                                  mod.cashOutPlayer(game._id, userIdKey, amount)
+                                );
+                                setEditingCashOut((prev) => ({
+                                  ...prev,
+                                  [userIdKey]: false,
+                                }));
+                                router.refresh();
+                              } catch (error: any) {
+                                setErrorMessage(
+                                  error?.message || "שגיאה בעדכון יציאה"
+                                );
+                                setTimeout(() => setErrorMessage(null), 5000);
+                              }
+                            }}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg shadow-emerald-900/20 transition text-sm font-medium"
+                          >
+                            שמור
+                          </button>
+                          <select
+                            value={
+                              showCustomCashOut[p.userId._id.toString()]
+                                ? "custom"
+                                : cashOuts[p.userId._id.toString()] ??
+                                  p.cashOut ??
+                                  ""
+                            }
+                            onChange={(e) => {
                               const userIdKey = p.userId._id.toString();
-                              const amount =
-                                cashOuts[userIdKey] ?? (p.cashOut || 0);
-                              await import("@/app/actions").then((mod) =>
-                                mod.cashOutPlayer(game._id, userIdKey, amount)
-                              );
+                              if (e.target.value === "custom") {
+                                setShowCustomCashOut((prev) => ({
+                                  ...prev,
+                                  [userIdKey]: true,
+                                }));
+                              } else {
+                                setShowCustomCashOut((prev) => ({
+                                  ...prev,
+                                  [userIdKey]: false,
+                                }));
+                                const value = Number(e.target.value);
+                                if (value > totalChipsInPot) {
+                                  setErrorMessage(
+                                    `לא ניתן להזין יותר מ-${totalChipsInPot.toLocaleString()} זיטונים (סך הקופה)`
+                                  );
+                                  setTimeout(() => setErrorMessage(null), 5000);
+                                  return;
+                                }
+                                setCashOuts({
+                                  ...cashOuts,
+                                  [userIdKey]: value,
+                                });
+                              }
+                            }}
+                            className="flex-1 min-w-[150px] bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                          >
+                            {chipOptions.map((option) => (
+                              <option
+                                key={option.value}
+                                value={option.value}
+                                disabled={
+                                  option.value !== "custom" &&
+                                  option.value > totalChipsInPot
+                                }
+                              >
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => {
+                              const userIdKey = p.userId._id.toString();
                               setEditingCashOut((prev) => ({
                                 ...prev,
                                 [userIdKey]: false,
                               }));
-                              router.refresh();
-                            } catch (error: any) {
-                              setErrorMessage(
-                                error?.message || "שגיאה בעדכון יציאה"
-                              );
-                              setTimeout(() => setErrorMessage(null), 5000);
+                              setCashOuts((prev) => {
+                                const newState = { ...prev };
+                                delete newState[userIdKey];
+                                return newState;
+                              });
+                            }}
+                            className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition text-sm font-medium"
+                          >
+                            ביטול
+                          </button>
+                        </div>
+                        {showCustomCashOut[p.userId._id.toString()] && (
+                          <input
+                            type="number"
+                            min="0"
+                            max={totalChipsInPot}
+                            value={
+                              cashOuts[p.userId._id.toString()] ??
+                              p.cashOut ??
+                              ""
                             }
-                          }}
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg shadow-emerald-900/20 transition text-sm font-medium"
-                        >
-                          שמור
-                        </button>
-                        <select
-                          value={
-                            showCustomCashOut[p.userId._id.toString()]
-                              ? "custom"
-                              : cashOuts[p.userId._id.toString()] ??
-                                p.cashOut ??
-                                ""
-                          }
-                          onChange={(e) => {
-                            const userIdKey = p.userId._id.toString();
-                            if (e.target.value === "custom") {
-                              setShowCustomCashOut((prev) => ({
-                                ...prev,
-                                [userIdKey]: true,
-                              }));
-                            } else {
-                              setShowCustomCashOut((prev) => ({
-                                ...prev,
-                                [userIdKey]: false,
-                              }));
+                            onChange={(e) => {
+                              const userIdKey = p.userId._id.toString();
                               const value = Number(e.target.value);
                               if (value > totalChipsInPot) {
                                 setErrorMessage(
@@ -1192,74 +1232,18 @@ export default function ActiveGameDashboard({
                                 ...cashOuts,
                                 [userIdKey]: value,
                               });
-                            }
-                          }}
-                          className="flex-1 min-w-[150px] bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                        >
-                          {chipOptions.map((option) => (
-                            <option
-                              key={option.value}
-                              value={option.value}
-                              disabled={
-                                option.value !== "custom" &&
-                                option.value > totalChipsInPot
-                              }
-                            >
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => {
-                            const userIdKey = p.userId._id.toString();
-                            setEditingCashOut((prev) => ({
-                              ...prev,
-                              [userIdKey]: false,
-                            }));
-                            setCashOuts((prev) => {
-                              const newState = { ...prev };
-                              delete newState[userIdKey];
-                              return newState;
-                            });
-                          }}
-                          className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition text-sm font-medium"
-                        >
-                          ביטול
-                        </button>
+                            }}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                            placeholder="הזן זיטונים"
+                          />
+                        )}
                       </div>
-                      {showCustomCashOut[p.userId._id.toString()] && (
-                        <input
-                          type="number"
-                          min="0"
-                          max={totalChipsInPot}
-                          value={
-                            cashOuts[p.userId._id.toString()] ?? p.cashOut ?? ""
-                          }
-                          onChange={(e) => {
-                            const userIdKey = p.userId._id.toString();
-                            const value = Number(e.target.value);
-                            if (value > totalChipsInPot) {
-                              setErrorMessage(
-                                `לא ניתן להזין יותר מ-${totalChipsInPot.toLocaleString()} זיטונים (סך הקופה)`
-                              );
-                              setTimeout(() => setErrorMessage(null), 5000);
-                              return;
-                            }
-                            setCashOuts({
-                              ...cashOuts,
-                              [userIdKey]: value,
-                            });
-                          }}
-                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                          placeholder="הזן זיטונים"
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-800/50">
@@ -1377,10 +1361,39 @@ export default function ActiveGameDashboard({
         </div>
       </section>
 
+      {/* Pot Summary */}
+      <section className="glass-card p-6 rounded-2xl mb-6">
+        <h2 className="text-xl font-bold text-slate-200 mb-4">סיכום קופה</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+            <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">
+              סך זיטונים במשחק
+            </div>
+            <div className="text-2xl font-bold text-emerald-400 font-mono mb-1">
+              {formatChips(totalChipsInPot)}
+            </div>
+            <div className="text-xs text-slate-500">
+              {formatShekels(chipsToShekels(totalChipsInPot))}
+            </div>
+          </div>
+          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+            <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">
+              כניסות כוללות
+            </div>
+            <div className="text-2xl font-bold text-amber-400 font-mono mb-1">
+              {formatChips(totalChipsInPot)}
+            </div>
+            <div className="text-xs text-slate-500">
+              {formatShekels(chipsToShekels(totalChipsInPot))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Help text */}
       <div className="mt-6 pt-4 border-t border-slate-800/50">
         <p className="text-xs text-slate-600 text-center">
-          💡 לחיצה ממושכת על שחקן למחיקתו מהמשחק | לחיצה ממושכת על כניסה למחיקתה
+          💡 לחיצה על שחקן או כניסה לפתיחת תפריט עם אופציות
         </p>
       </div>
     </div>
