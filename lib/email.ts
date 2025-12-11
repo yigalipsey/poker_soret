@@ -220,3 +220,81 @@ export async function sendDepositRequestEmail(
     console.error("Error sending deposit request email:", error);
   }
 }
+
+export async function sendJoinGameRequestEmail(
+  userName: string,
+  amount: number,
+  gameId: string,
+  adminEmail?: string
+) {
+  if (!EMAIL_USER || !EMAIL_PASS) {
+    console.error("Email credentials not configured");
+    return;
+  }
+
+  let recipientEmail: string | null = null;
+
+  if (adminEmail && adminEmail.trim() !== "") {
+    recipientEmail = adminEmail.trim();
+  } else {
+    recipientEmail = DEFAULT_ADMIN_EMAIL;
+  }
+
+  if (!recipientEmail) {
+    console.log("No admin email configured, skipping email send");
+    return;
+  }
+
+  try {
+    const adminUrl = `${URL_PRODUCTION}/admin/games`;
+    const formattedAmount = amount.toLocaleString("he-IL");
+    const shekelsAmount = (amount / 100).toFixed(2);
+
+    const mailOptions = {
+      from: EMAIL_USER,
+      to: recipientEmail,
+      subject: `בקשה חדשה להצטרפות למשחק - ${userName}`,
+      html: `
+        <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #3b82f6; margin-bottom: 20px;">בקשה חדשה להצטרפות למשחק</h2>
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #3b82f6;">
+            <p style="margin: 10px 0; font-size: 16px;"><strong>שם המשתמש:</strong> ${userName}</p>
+            <p style="margin: 10px 0; font-size: 16px;"><strong>סכום מבוקש:</strong> ${formattedAmount} זיטונים (₪${shekelsAmount})</p>
+            <p style="margin: 10px 0; font-size: 16px;"><strong>תאריך ושעה:</strong> ${new Date().toLocaleString(
+              "he-IL"
+            )}</p>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${adminUrl}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+              לפתיחת דף ניהול המשחקים
+            </a>
+          </div>
+          <p style="color: #6b7280; text-align: center; margin-top: 20px; font-size: 14px;">
+            או העתק את הקישור: <a href="${adminUrl}" style="color: #3b82f6;">${adminUrl}</a>
+          </p>
+          <p style="color: #6b7280; text-align: center; margin-top: 10px; font-size: 12px;">
+            בדף ניהול המשחקים תוכל לראות את כל הבקשות הממתינות ולאשר אותן.
+          </p>
+        </div>
+      `,
+      text: `
+בקשה חדשה להצטרפות למשחק
+
+שם המשתמש: ${userName}
+סכום מבוקש: ${formattedAmount} זיטונים (₪${shekelsAmount})
+תאריך ושעה: ${new Date().toLocaleString("he-IL")}
+
+לפתיחת דף ניהול המשחקים: ${adminUrl}
+
+נא לבדוק את הבקשה במערכת הניהול.
+      `,
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log(
+      `Email sent successfully to ${recipientEmail} for join game request from ${userName}`
+    );
+  } catch (error: any) {
+    console.error("Error sending join game request email:", error);
+  }
+}

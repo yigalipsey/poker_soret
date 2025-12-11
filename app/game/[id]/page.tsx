@@ -1,4 +1,10 @@
-import { getGameById, getPlayerSession, getClubSession } from "@/app/actions";
+import {
+  getGameById,
+  getPlayerSession,
+  getClubSession,
+  getClub,
+  getUserPendingJoinRequest,
+} from "@/app/actions";
 import PlayerGameClient from "@/components/PlayerGameClient";
 import GameSummary from "@/components/GameSummary";
 import ClubLoginScreen from "@/components/ClubLoginScreen";
@@ -22,10 +28,17 @@ export default async function GamePage({
     );
   }
 
-  const [game, currentUser] = await Promise.all([
+  const [game, currentUser, club] = await Promise.all([
     getGameById(id),
     getPlayerSession(),
+    getClub(clubId),
   ]);
+
+  // בדיקה אם יש בקשה ממתינה למשתמש הנוכחי
+  const userPendingRequest =
+    currentUser && game?.isActive
+      ? await getUserPendingJoinRequest(id, currentUser._id)
+      : null;
 
   if (!game)
     return <div className="p-8 text-center text-slate-500">המשחק לא נמצא</div>;
@@ -44,5 +57,12 @@ export default async function GamePage({
     return <GameSummary game={game} />;
   }
 
-  return <PlayerGameClient game={game} currentUser={currentUser} />;
+  return (
+    <PlayerGameClient
+      game={game}
+      currentUser={currentUser}
+      club={club}
+      userPendingRequest={userPendingRequest}
+    />
+  );
 }

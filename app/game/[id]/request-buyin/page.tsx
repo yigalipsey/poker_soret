@@ -3,6 +3,7 @@ import {
   getPlayerSession,
   getClubSession,
   getClub,
+  getUserPendingBuyInRequest,
 } from "@/app/actions";
 import RequestBuyInPage from "@/components/RequestBuyInPage";
 import ClubLoginScreen from "@/components/ClubLoginScreen";
@@ -33,6 +34,12 @@ export default async function RequestBuyInRoute({
     getPlayerSession(),
     getClub(clubId),
   ]);
+
+  // בדיקה אם יש בקשה ממתינה לכניסה נוספת
+  const userPendingBuyInRequest =
+    currentUser && game?.isActive
+      ? await getUserPendingBuyInRequest(id, currentUser._id)
+      : null;
 
   if (!game) {
     return (
@@ -106,7 +113,12 @@ export default async function RequestBuyInRoute({
         </div>
       </header>
 
-      <RequestBuyInPage game={game} currentUser={currentUser} club={club} />
+      <RequestBuyInPage
+        game={game}
+        currentUser={currentUser}
+        club={club}
+        userPendingRequest={userPendingBuyInRequest}
+      />
     </div>
   );
 }

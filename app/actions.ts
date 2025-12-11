@@ -11,8 +11,13 @@ import mongoose from "mongoose";
 import { cookies } from "next/headers";
 // bcrypt removed - using plain text passwords for simplicity
 import { chipsToShekels } from "@/lib/utils";
-import { sendBuyInRequestEmail, sendDepositRequestEmail } from "@/lib/email";
+import {
+  sendBuyInRequestEmail,
+  sendDepositRequestEmail,
+  sendJoinGameRequestEmail,
+} from "@/lib/email";
 import DepositRequest from "@/models/DepositRequest";
+import JoinGameRequest from "@/models/JoinGameRequest";
 
 /**
  * המרת אובייקט Mongoose ל-plain object עבור Client Components
@@ -1754,6 +1759,211 @@ export async function approveDepositRequest(requestId: string) {
   revalidatePath("/profile");
   revalidatePath("/admin");
   revalidatePath("/admin/bankroll");
+
+  return { success: true };
+}
+
+/**
+ * בקשת שחקן להצטרף למשחק פעיל
+ * יוצרת בקשה ושולחת מייל למנהל
+ */
+export async function requestJoinGame(gameId: string, amount: number) {
+  await connectDB();
+  const sessionCookie = (await cookies()).get("player_session");
+  if (!sessionCookie) {
+    throw new Error("נא להתחבר תחילה");
+  }
+
+  const user = await User.findById(sessionCookie.value);
+  if (!user) {
+    throw new Error("שחקן לא נמצא");
+  }
+
+  if (!user.clubId) {
+    throw new Error("שחקן לא משויך למועדון");
+  }
+
+  const game = await GameSession.findById(gameId);
+  if (!game) {
+    throw new Error("משחק לא נמצא");
+  }
+
+  if (!game.isActive) {
+    throw new Error("המשחק לא פעיל");
+  }
+
+  // בדיקה שהשחקן לא כבר במשחק
+  const existingPlayer = game.players.find((p: any) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === user._id.toString();
+  });
+
+  if (existingPlayer) {
+    throw new Error("אתה כבר משתתף במשחק זה");
+  }
+
+  // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום מספיק
+  const isSharedBankroll =
+    game.isSharedBankroll ||
+    (game.clubId &&
+      (await Club.findById(game.clubId))?.gameMode === "shared_bankroll");
+
+  if (isSharedBankroll && game.clubId) {
+    const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
+    if (!clubBankroll) {
+      throw new Error("קופה משותפת לא נמצאה");
+    }
+
+    const playerBankroll = clubBankroll.players.find(
+      (p) => p.userId.toString() === user._id.toString()
+    );
+    const currentBankroll = playerBankroll?.balance || 0;
+
+    // אם אין כסף מוטען בכלל, לא ניתן לבקש להצטרף
+    if (currentBankroll === 0) {
+      throw new Error(
+        "לא ניתן להצטרף למשחק במצב קופה משותפת ללא כסף מוטען. נא להטעין כסף תחילה."
+      );
+    }
+
+    // בדיקה שהסכום המבוקש לא עולה על הכסף המוטען
+    if (amount > currentBankroll) {
+      throw new Error(
+        `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${amount.toLocaleString()} זיטונים`
+      );
+    }
+  }
+
+  if (amount <= 0) {
+    throw new Error("נא להזין סכום תקין");
+  }
+
+  // יצירת בקשה חדשה
+  const joinRequest = await JoinGameRequest.create({
+    userId: user._id,
+    gameId: game._id,
+    clubId: user.clubId,
+    amount,
+    status: "pending",
+  });
+
+  // שליחת מייל למנהל
+  try {
+    const club = await Club.findById(user.clubId).lean();
+    await sendJoinGameRequestEmail(user.name, amount, gameId, club?.adminEmail);
+  } catch (error) {
+    console.error("Error sending join game request email:", error);
+    // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/game/${gameId}`);
+  return { success: true, requestId: joinRequest._id.toString() };
+}
+
+/**
+ * קבלת בקשות הצטרפות ממתינות למשחק
+ */
+export async function getPendingJoinGameRequests(gameId: string) {
+  await connectDB();
+  const requests = await JoinGameRequest.find({
+    gameId,
+    status: "pending",
+  })
+    .populate("userId")
+    .sort({ createdAt: -1 })
+    .lean();
+  return JSON.parse(JSON.stringify(requests));
+}
+
+/**
+ * בדיקה אם יש בקשה ממתינה למשתמש ספציפי במשחק
+ */
+export async function getUserPendingJoinRequest(
+  gameId: string,
+  userId: string
+) {
+  await connectDB();
+  const request = await JoinGameRequest.findOne({
+    gameId,
+    userId,
+    status: "pending",
+  })
+    .populate("userId")
+    .lean();
+  return request ? JSON.parse(JSON.stringify(request)) : null;
+}
+
+/**
+ * בדיקה אם יש בקשה ממתינה לכניסה נוספת למשתמש במשחק
+ */
+export async function getUserPendingBuyInRequest(
+  gameId: string,
+  userId: string
+) {
+  await connectDB();
+  const game = await GameSession.findById(gameId).lean();
+  if (!game) return null;
+
+  const player = game.players.find((p: any) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
+
+  if (!player) return null;
+
+  // מציאת בקשה ממתינה
+  const pendingRequest = player.buyInRequests?.find(
+    (r: any) => r.status === "pending"
+  );
+
+  return pendingRequest ? JSON.parse(JSON.stringify(pendingRequest)) : null;
+}
+
+/**
+ * אישור בקשה להצטרפות למשחק
+ */
+export async function approveJoinGameRequest(requestId: string) {
+  await connectDB();
+  const joinRequest = await JoinGameRequest.findById(requestId)
+    .populate("userId")
+    .populate("gameId");
+
+  if (!joinRequest) {
+    throw new Error("בקשה לא נמצאה");
+  }
+
+  if (joinRequest.status !== "pending") {
+    throw new Error(
+      `הבקשה כבר ${joinRequest.status === "approved" ? "אושרה" : "נדחתה"}`
+    );
+  }
+
+  const game = joinRequest.gameId as any;
+  if (!game.isActive) {
+    throw new Error("המשחק לא פעיל");
+  }
+
+  // אישור הבקשה והוספת השחקן למשחק
+  joinRequest.status = "approved";
+  joinRequest.approvedAt = new Date();
+  await joinRequest.save();
+
+  // הוספת השחקן למשחק
+  await addPlayerToGame(
+    game._id.toString(),
+    (joinRequest.userId as any)._id.toString(),
+    joinRequest.amount
+  );
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/games");
+  revalidatePath(`/game/${game._id}`);
 
   return { success: true };
 }

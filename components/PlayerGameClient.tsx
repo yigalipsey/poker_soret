@@ -7,12 +7,18 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import Link from "next/link";
 
+import RequestJoinGame from "@/components/RequestJoinGame";
+
 export default function PlayerGameClient({
   game,
   currentUser,
+  club,
+  userPendingRequest,
 }: {
   game: any;
   currentUser: any;
+  club?: any;
+  userPendingRequest?: any;
 }) {
   const [elapsedTime, setElapsedTime] = useState("");
   const router = useRouter();
@@ -85,6 +91,16 @@ export default function PlayerGameClient({
         </div>
       </header>
 
+      {/* Request Join Game - Only if logged in and NOT a player - בראש הדף */}
+      {currentUser && !player && game.isActive && (
+        <RequestJoinGame
+          game={game}
+          currentUser={currentUser}
+          club={club}
+          userPendingRequest={userPendingRequest}
+        />
+      )}
+
       {/* Current Balance Card - Only if player is logged in and has multiple buy-ins */}
       {currentUser && player && hasMultipleBuyIns && (
         <>
@@ -134,16 +150,6 @@ export default function PlayerGameClient({
           >
             התחבר עכשיו
           </Link>
-        </div>
-      )}
-
-      {/* Not a player message */}
-      {currentUser && !player && (
-        <div className="bg-amber-900/20 p-4 rounded-xl border border-amber-500/30 text-center">
-          <div className="text-amber-400 font-medium mb-2">
-            אינך משתתף במשחק זה
-          </div>
-          <p className="text-amber-300/80 text-sm">פנה למנהל המשחק להוספתך</p>
         </div>
       )}
 

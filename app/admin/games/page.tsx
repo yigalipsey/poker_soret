@@ -4,6 +4,7 @@ import {
   getGameHistory,
   getClub,
   getUsers,
+  getPendingJoinGameRequests,
 } from "@/app/actions";
 import LogoutButton from "@/components/admin/LogoutButton";
 import { redirect } from "next/navigation";
@@ -29,6 +30,11 @@ export default async function AdminGamesPage() {
     getUsers(clubId),
   ]);
 
+  // טעינת בקשות הצטרפות ממתינות אם יש משחק פעיל
+  const pendingJoinRequests = activeGame
+    ? await getPendingJoinGameRequests(activeGame._id)
+    : [];
+
   return (
     <div className="pt-4 pb-24 space-y-8 min-h-screen px-4">
       <div className="flex items-center justify-between">
@@ -47,7 +53,12 @@ export default async function AdminGamesPage() {
       </div>
 
       {activeGame ? (
-        <ActiveGameDashboard game={activeGame} users={users} club={club} />
+        <ActiveGameDashboard
+          game={activeGame}
+          users={users}
+          club={club}
+          pendingJoinRequests={pendingJoinRequests}
+        />
       ) : (
         <CreateGameForm users={users} clubId={clubId} club={club} />
       )}

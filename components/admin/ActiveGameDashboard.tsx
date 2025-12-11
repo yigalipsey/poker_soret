@@ -9,6 +9,7 @@ import {
   cancelBuyIn,
   removePlayerFromGame,
   cancelCashOut,
+  approveJoinGameRequest,
 } from "@/app/actions";
 import {
   Loader2,
@@ -30,10 +31,12 @@ export default function ActiveGameDashboard({
   game,
   users,
   club,
+  pendingJoinRequests,
 }: {
   game: any;
   users?: any[];
   club?: any;
+  pendingJoinRequests?: any[];
 }) {
   const [ending, setEnding] = useState(false);
   const [cashOuts, setCashOuts] = useState<Record<string, number>>({});
@@ -310,6 +313,83 @@ export default function ActiveGameDashboard({
                 שחקנים יכולים להכניס רק כסף שהוטען להם בקופה המשותפת
               </p>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* Pending Join Game Requests */}
+      {pendingJoinRequests && pendingJoinRequests.length > 0 && (
+        <section className="glass-card p-4 rounded-xl border-blue-500/30 bg-blue-900/10">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
+              <UserPlus className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-blue-400">
+                בקשות הצטרפות ממתינות
+              </h3>
+              <p className="text-xs text-blue-300/80 mt-0.5">
+                {pendingJoinRequests.length} בקשה/ות ממתינות לאישור
+              </p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {pendingJoinRequests.map((request: any) => {
+              const user = request.userId;
+              const userName = user?.name || "שחקן לא ידוע";
+              const amount = request.amount;
+              const requestDate = new Date(request.createdAt).toLocaleString(
+                "he-IL"
+              );
+
+              return (
+                <div
+                  key={request._id}
+                  className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-slate-200">
+                        {userName}
+                      </p>
+                      <p className="text-xs text-slate-400">{requestDate}</p>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold text-blue-400">
+                        {formatChips(amount)}
+                      </p>
+                      <p className="text-xs text-slate-500">זיטונים</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        setLoading(true);
+                        setErrorMessage(null);
+                        await approveJoinGameRequest(request._id);
+                        router.refresh();
+                      } catch (error: any) {
+                        setErrorMessage(error?.message || "שגיאה באישור הבקשה");
+                        setTimeout(() => setErrorMessage(null), 5000);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        אשר הצטרפות
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

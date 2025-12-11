@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { requestBuyIn } from "@/app/actions";
 import { useRouter } from "next/navigation";
-import { Loader2, Coins } from "lucide-react";
+import { Loader2, Coins, Clock } from "lucide-react";
 import { formatChips, formatShekels, chipsToShekels } from "@/lib/utils";
 
 export default function RequestBuyInPage({
   game,
   currentUser,
   club,
+  userPendingRequest,
 }: {
   game: any;
   currentUser: any;
   club?: any;
+  userPendingRequest?: any;
 }) {
   const [amount, setAmount] = useState(0);
   const [customAmount, setCustomAmount] = useState("");
@@ -53,6 +55,47 @@ export default function RequestBuyInPage({
         >
           חזור למשחק
         </a>
+      </div>
+    );
+  }
+
+  // אם יש בקשה ממתינה, הצג הודעה במקום הטופס
+  if (userPendingRequest) {
+    const requestDate = new Date(userPendingRequest.timestamp).toLocaleString(
+      "he-IL"
+    );
+    return (
+      <div className="glass-card p-6 rounded-2xl border border-amber-500/30 bg-amber-500/10">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-amber-500/20 rounded-lg">
+            <Clock className="w-5 h-5 text-amber-400" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-200 text-right">
+            בקשה כניסה קיימת ממתינה לאישור
+          </h3>
+        </div>
+        <div className="text-right space-y-3">
+          <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">
+            <p className="text-amber-300 text-sm mb-2">
+              יש לך בקשה ממתינה לכניסה נוספת עם{" "}
+              <span className="font-bold text-amber-400">
+                {formatChips(userPendingRequest.amount)}
+              </span>{" "}
+              זיטונים
+            </p>
+            <p className="text-amber-300/70 text-xs">נשלח ב-{requestDate}</p>
+          </div>
+          <p className="text-amber-300/70 text-xs">
+            המנהל יקבל מייל ויאשר את הבקשה בקרוב. נא לאשר את הבקשה הזו לפני
+            שליחת בקשה חדשה.
+          </p>
+          <a
+            href={`/game/${game._id}`}
+            className="block w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg font-medium transition text-center text-sm"
+          >
+            חזור למשחק
+          </a>
+        </div>
       </div>
     );
   }
