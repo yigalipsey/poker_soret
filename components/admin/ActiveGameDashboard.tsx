@@ -623,8 +623,16 @@ export default function ActiveGameDashboard({
                     }
                     try {
                       setLoading(true);
+                      console.log(
+                        "[ActiveGameDashboard] Adding player to game:",
+                        {
+                          gameId: game._id?.toString() || game._id,
+                          userId: selectedPlayerId,
+                          buyIn: newPlayerBuyIn || 0,
+                        }
+                      );
                       await addPlayerToGame(
-                        game._id,
+                        game._id?.toString() || game._id,
                         selectedPlayerId,
                         newPlayerBuyIn || 0
                       );
@@ -634,6 +642,10 @@ export default function ActiveGameDashboard({
                       setShowCustomBuyInForNewPlayer(false);
                       router.refresh();
                     } catch (error: any) {
+                      console.error(
+                        "[ActiveGameDashboard] Error adding player:",
+                        error
+                      );
                       setErrorMessage(error?.message || "שגיאה בהוספת שחקן");
                       setTimeout(() => setErrorMessage(null), 5000);
                     } finally {

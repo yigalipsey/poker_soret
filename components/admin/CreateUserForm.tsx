@@ -2,12 +2,14 @@
 import { useState } from "react";
 import { createUser } from "@/app/actions";
 import { Loader2, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function CreateUserForm({ clubId }: { clubId?: string | null }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,11 +30,16 @@ export default function CreateUserForm({ clubId }: { clubId?: string | null }) {
 
     setLoading(true);
     try {
-      await createUser(name, false, clubId, password.trim());
+      console.log("[CreateUserForm] Attempting to create user:", { name, clubId });
+      const result = await createUser(name, false, clubId, password.trim());
+      console.log("[CreateUserForm] User created successfully:", result);
       setName("");
       setPassword("");
       setError("");
+      // Refresh the page to show the new user
+      router.refresh();
     } catch (err: any) {
+      console.error("[CreateUserForm] Error creating user:", err);
       setError(err.message || "שגיאה ביצירת שחקן");
     } finally {
       setLoading(false);

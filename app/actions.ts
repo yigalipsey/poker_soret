@@ -102,40 +102,66 @@ export async function createUser(
   clubId?: string,
   password?: string
 ) {
-  await connectDB();
+  try {
+    await connectDB();
 
-  // אם זה לא מנהל, חייב להיות clubId
-  if (!isAdmin && !clubId) {
-    throw new Error("נא לבחור קלאב לפני יצירת שחקן");
-  }
+    // אם זה לא מנהל, חייב להיות clubId
+    if (!isAdmin && !clubId) {
+      throw new Error("נא לבחור קלאב לפני יצירת שחקן");
+    }
 
-  // בדוק אם כבר קיים משתמש עם אותו שם באותו קלאב
-  if (clubId) {
-    const existingUser = await User.findOne({
+    // בדוק אם כבר קיים משתמש עם אותו שם באותו קלאב
+    if (clubId) {
+      const existingUser = await User.findOne({
+        name: name.trim(),
+        clubId: clubId,
+      });
+
+      if (existingUser) {
+        throw new Error(`שחקן עם השם "${name.trim()}" כבר קיים בקלאב זה`);
+      }
+    }
+
+    const userData: any = {
       name: name.trim(),
-      clubId: clubId,
+      isAdmin,
+      password: password || "1234",
+    };
+
+    // תמיד להגדיר clubId אם זה לא מנהל
+    if (clubId) {
+      userData.clubId = clubId;
+    }
+
+    console.log(`[createUser] Creating user with data:`, {
+      name: userData.name,
+      isAdmin: userData.isAdmin,
+      clubId: userData.clubId,
+      hasPassword: !!userData.password,
     });
 
-    if (existingUser) {
-      throw new Error(`שחקן עם השם "${name.trim()}" כבר קיים בקלאב זה`);
-    }
+    const user = await User.create(userData);
+
+    console.log(`[createUser] User created successfully:`, {
+      userId: user._id.toString(),
+      name: user.name,
+    });
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath("/admin/users");
+
+    // Return serializable object using toPlainObject
+    return toPlainObject(user);
+  } catch (error: any) {
+    console.error("[createUser] Error creating user:", error);
+    console.error("[createUser] Error details:", {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+    });
+    throw error;
   }
-
-  const userData: any = {
-    name: name.trim(),
-    isAdmin,
-    password: password || "1234",
-  };
-
-  // תמיד להגדיר clubId אם זה לא מנהל
-  if (clubId) {
-    userData.clubId = clubId;
-  }
-
-  const user = await User.create(userData);
-  revalidatePath("/");
-  revalidatePath("/admin");
-  return JSON.parse(JSON.stringify(user));
 }
 
 export async function createGame(
@@ -356,11 +382,21 @@ export async function requestBuyIn(
       } else {
         console.log(`[requestBuyIn] No clubId found in game`);
       }
+      console.log(
+        `[requestBuyIn] Calling sendBuyInRequestEmail - User: ${user.name}, Amount: ${amount}`
+      );
       await sendBuyInRequestEmail(user.name, amount, adminEmail);
+      console.log(`[requestBuyIn] Email send completed`);
+    } else {
+      console.log(`[requestBuyIn] User not found, skipping email send`);
     }
-  } catch (error) {
+  } catch (error: any) {
     // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
-    console.error("Error sending buy-in request email:", error);
+    console.error("[requestBuyIn] Error sending buy-in request email:", error);
+    console.error(`[requestBuyIn] Error details:`, {
+      message: error?.message,
+      stack: error?.stack,
+    });
   }
 
   revalidatePath(`/game/${gameId}`);
@@ -1027,75 +1063,151 @@ export async function addPlayerToGame(
   userId: string,
   initialBuyIn: number
 ) {
-  await connectDB();
-  const game = await GameSession.findById(gameId);
-  if (!game) throw new Error("Game not found");
-  if (!game.isActive) throw new Error("Game is not active");
+  try {
+    // Convert gameId to string if it's an ObjectId
+    const gameIdString =
+      typeof gameId === "string"
+        ? gameId
+        : gameId?.toString() || String(gameId);
+    const userIdString =
+      typeof userId === "string"
+        ? userId
+        : userId?.toString() || String(userId);
 
-  // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום מספיק
-  const isSharedBankroll =
-    game.isSharedBankroll ||
-    (game.clubId &&
-      (await Club.findById(game.clubId))?.gameMode === "shared_bankroll");
-
-  if (isSharedBankroll && game.clubId) {
-    const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
-    if (!clubBankroll) {
-      throw new Error("קופה משותפת לא נמצאה");
-    }
-
-    const playerBankroll = clubBankroll.players.find(
-      (p) => p.userId.toString() === userId
+    console.log(
+      `[addPlayerToGame] Starting - GameId: ${gameIdString}, UserId: ${userIdString}, InitialBuyIn: ${initialBuyIn}`
     );
-    const currentBankroll = playerBankroll?.balance || 0;
 
-    // אם אין כסף מוטען בכלל, לא ניתן להוסיף את השחקן
-    if (currentBankroll === 0) {
-      throw new Error(
-        "לא ניתן להוסיף שחקן למשחק במצב קופה משותפת ללא כסף מוטען. נא להטעין כסף לשחקן תחילה."
+    await connectDB();
+
+    const game = await GameSession.findById(gameIdString);
+    if (!game) {
+      console.error(`[addPlayerToGame] Game not found: ${gameIdString}`);
+      throw new Error("Game not found");
+    }
+
+    if (!game.isActive) {
+      console.error(`[addPlayerToGame] Game is not active: ${gameIdString}`);
+      throw new Error("Game is not active");
+    }
+
+    console.log(
+      `[addPlayerToGame] Game found - Active: ${game.isActive}, ClubId: ${game.clubId}`
+    );
+
+    // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום מספיק
+    const clubIdString = game.clubId
+      ? typeof game.clubId === "string"
+        ? game.clubId
+        : game.clubId.toString()
+      : null;
+    let isSharedBankroll = game.isSharedBankroll;
+
+    if (!isSharedBankroll && clubIdString) {
+      const club = await Club.findById(clubIdString).lean();
+      isSharedBankroll = club?.gameMode === "shared_bankroll";
+      console.log(
+        `[addPlayerToGame] Club check - ClubId: ${clubIdString}, GameMode: ${club?.gameMode}, IsSharedBankroll: ${isSharedBankroll}`
       );
     }
 
-    // בדיקה שהסכום המבוקש לא עולה על הכסף המוטען
-    if (initialBuyIn > currentBankroll) {
-      throw new Error(
-        `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${initialBuyIn.toLocaleString()} זיטונים`
+    if (isSharedBankroll && clubIdString) {
+      console.log(
+        `[addPlayerToGame] Checking ClubBankroll for clubId: ${clubIdString}`
       );
+      const clubBankroll = await ClubBankroll.findOne({ clubId: clubIdString });
+      if (!clubBankroll) {
+        console.error(
+          `[addPlayerToGame] ClubBankroll not found for clubId: ${clubIdString}`
+        );
+        throw new Error("קופה משותפת לא נמצאה");
+      }
+
+      const playerBankroll = clubBankroll.players.find(
+        (p) => p.userId.toString() === userIdString
+      );
+      const currentBankroll = playerBankroll?.balance || 0;
+
+      console.log(
+        `[addPlayerToGame] Bankroll check - UserId: ${userIdString}, CurrentBankroll: ${currentBankroll}, InitialBuyIn: ${initialBuyIn}`
+      );
+
+      // אם אין כסף מוטען בכלל, לא ניתן להוסיף את השחקן
+      if (currentBankroll === 0) {
+        throw new Error(
+          "לא ניתן להוסיף שחקן למשחק במצב קופה משותפת ללא כסף מוטען. נא להטעין כסף לשחקן תחילה."
+        );
+      }
+
+      // בדיקה שהסכום המבוקש לא עולה על הכסף המוטען
+      if (initialBuyIn > currentBankroll) {
+        throw new Error(
+          `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${initialBuyIn.toLocaleString()} זיטונים`
+        );
+      }
     }
+
+    // Check if player already in game
+    const existingPlayer = game.players.find((p: any) => {
+      const playerId = p.userId._id
+        ? p.userId._id.toString()
+        : p.userId.toString();
+      return playerId === userIdString;
+    });
+
+    if (existingPlayer) {
+      console.error(
+        `[addPlayerToGame] Player already in game - UserId: ${userIdString}`
+      );
+      throw new Error("Player already in game");
+    }
+
+    console.log(
+      `[addPlayerToGame] Adding player to game - UserId: ${userIdString}, InitialBuyIn: ${initialBuyIn}`
+    );
+
+    // Add new player
+    game.players.push({
+      userId: new mongoose.Types.ObjectId(userIdString),
+      totalApprovedBuyIn: initialBuyIn,
+      buyInRequests:
+        initialBuyIn > 0
+          ? [
+              {
+                amount: initialBuyIn,
+                status: "approved" as const,
+                timestamp: new Date(),
+                isInitial: true,
+                addedBy: "admin" as const,
+              },
+            ]
+          : [],
+      cashOut: 0,
+      netProfit: 0,
+      isCashedOut: false,
+    });
+
+    await game.save();
+    console.log(
+      `[addPlayerToGame] Player added successfully - GameId: ${gameIdString}, UserId: ${userIdString}`
+    );
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/games");
+    revalidatePath(`/game/${gameIdString}`);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[addPlayerToGame] Error:", error);
+    console.error("[addPlayerToGame] Error details:", {
+      message: error?.message,
+      stack: error?.stack,
+      gameId: typeof gameId === "string" ? gameId : gameId?.toString(),
+      userId: typeof userId === "string" ? userId : userId?.toString(),
+      initialBuyIn,
+    });
+    throw error;
   }
-
-  // Check if player already in game
-  const existingPlayer = game.players.find((p: any) => {
-    const playerId = p.userId._id
-      ? p.userId._id.toString()
-      : p.userId.toString();
-    return playerId === userId;
-  });
-  if (existingPlayer) throw new Error("Player already in game");
-
-  // Add new player
-  game.players.push({
-    userId: new mongoose.Types.ObjectId(userId),
-    totalApprovedBuyIn: initialBuyIn,
-    buyInRequests:
-      initialBuyIn > 0
-        ? [
-            {
-              amount: initialBuyIn,
-              status: "approved" as const,
-              timestamp: new Date(),
-              isInitial: true,
-              addedBy: "admin" as const,
-            },
-          ]
-        : [],
-    cashOut: 0,
-    netProfit: 0,
-    isCashedOut: false,
-  });
-
-  await game.save();
-  revalidatePath("/admin");
 }
 
 export async function setPlayerPassword(userId: string, password: string) {
@@ -1698,14 +1810,30 @@ export async function requestDeposit(amountInShekels: number) {
 
   // שליחת מייל למנהל
   try {
+    console.log(
+      `[requestDeposit] Preparing to send email - User: ${
+        user.name
+      }, Amount: ${amountInShekels}, RequestId: ${depositRequest._id.toString()}`
+    );
+    console.log(
+      `[requestDeposit] Club admin email: ${club.adminEmail || "undefined"}`
+    );
     await sendDepositRequestEmail(
       user.name,
       amountInShekels,
       depositRequest._id.toString(),
       club.adminEmail
     );
-  } catch (error) {
-    console.error("Error sending deposit request email:", error);
+    console.log(`[requestDeposit] Email send completed`);
+  } catch (error: any) {
+    console.error(
+      "[requestDeposit] Error sending deposit request email:",
+      error
+    );
+    console.error(`[requestDeposit] Error details:`, {
+      message: error?.message,
+      stack: error?.stack,
+    });
     // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
   }
 
@@ -1851,10 +1979,26 @@ export async function requestJoinGame(gameId: string, amount: number) {
 
   // שליחת מייל למנהל
   try {
+    console.log(
+      `[requestJoinGame] Preparing to send email - User: ${user.name}, Amount: ${amount}, GameId: ${gameId}`
+    );
     const club = await Club.findById(user.clubId).lean();
+    console.log(
+      `[requestJoinGame] Club found: ${club ? "YES" : "NO"}, Admin email: ${
+        club?.adminEmail || "undefined"
+      }`
+    );
     await sendJoinGameRequestEmail(user.name, amount, gameId, club?.adminEmail);
-  } catch (error) {
-    console.error("Error sending join game request email:", error);
+    console.log(`[requestJoinGame] Email send completed`);
+  } catch (error: any) {
+    console.error(
+      "[requestJoinGame] Error sending join game request email:",
+      error
+    );
+    console.error(`[requestJoinGame] Error details:`, {
+      message: error?.message,
+      stack: error?.stack,
+    });
     // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
   }
 

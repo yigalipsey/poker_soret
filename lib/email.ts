@@ -20,6 +20,12 @@ export async function sendBuyInRequestEmail(
   amount: number,
   adminEmail?: string
 ) {
+  console.log(
+    `[sendBuyInRequestEmail] Starting - User: ${userName}, Amount: ${amount}, AdminEmail: ${
+      adminEmail || "undefined"
+    }`
+  );
+
   if (!EMAIL_USER || !EMAIL_PASS) {
     console.error("Email credentials not configured");
     console.error(
@@ -48,10 +54,6 @@ export async function sendBuyInRequestEmail(
       adminEmail || "undefined"
     }, Using: ${recipientEmail}`
   );
-  console.log(`[sendBuyInRequestEmail] Email config check:`, {
-    EMAIL_USER: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
-    EMAIL_PASS: EMAIL_PASS ? "SET" : "NOT SET",
-  });
 
   if (!recipientEmail) {
     console.log("No admin email configured, skipping email send");
@@ -77,6 +79,13 @@ export async function sendBuyInRequestEmail(
     const shekelsAmount = (amount / 100).toFixed(2);
     const formattedAmount = amount.toLocaleString("he-IL");
     const adminUrl = `${URL_PRODUCTION}/admin/games`;
+
+    console.log(`[sendBuyInRequestEmail] Email config check:`, {
+      EMAIL_USER: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
+      EMAIL_PASS: EMAIL_PASS ? "SET" : "NOT SET",
+      URL_PRODUCTION: URL_PRODUCTION,
+      recipientEmail: recipientEmail,
+    });
 
     const mailOptions = {
       from: EMAIL_USER,
@@ -119,11 +128,13 @@ export async function sendBuyInRequestEmail(
       from: EMAIL_USER,
       to: recipientEmail,
       subject: `בקשה חדשה לכניסה למשחק - ${userName}`,
+      timestamp: new Date().toISOString(),
     });
 
+    console.log(`[sendBuyInRequestEmail] Calling transporter.sendMail...`);
     const result = await transporter.sendMail(mailOptions);
     console.log(
-      `Email sent successfully to ${recipientEmail} for buy-in request from ${userName}`
+      `[sendBuyInRequestEmail] Email sent successfully to ${recipientEmail} for buy-in request from ${userName}`
     );
     console.log(`[sendBuyInRequestEmail] Email result:`, {
       messageId: result.messageId,
@@ -131,14 +142,17 @@ export async function sendBuyInRequestEmail(
       rejected: result.rejected,
       response: result.response,
       pending: result.pending,
+      timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
-    console.error("Error sending email:", error);
+    console.error("[sendBuyInRequestEmail] Error sending email:", error);
     console.error(`[sendBuyInRequestEmail] Error details:`, {
       message: error?.message,
       code: error?.code,
       response: error?.response,
       responseCode: error?.responseCode,
+      stack: error?.stack,
+      timestamp: new Date().toISOString(),
     });
     // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
   }
@@ -150,8 +164,17 @@ export async function sendDepositRequestEmail(
   requestId: string,
   adminEmail?: string
 ) {
+  console.log(
+    `[sendDepositRequestEmail] Starting - User: ${userName}, Amount: ${amountInShekels}, RequestId: ${requestId}`
+  );
+
   if (!EMAIL_USER || !EMAIL_PASS) {
-    console.error("Email credentials not configured");
+    console.error("[sendDepositRequestEmail] Email credentials not configured");
+    console.error(
+      `[sendDepositRequestEmail] EMAIL_USER: ${
+        EMAIL_USER ? "SET" : "NOT SET"
+      }, EMAIL_PASS: ${EMAIL_PASS ? "SET" : "NOT SET"}`
+    );
     return;
   }
 
@@ -159,18 +182,48 @@ export async function sendDepositRequestEmail(
 
   if (adminEmail && adminEmail.trim() !== "") {
     recipientEmail = adminEmail.trim();
+    console.log(
+      `[sendDepositRequestEmail] Using admin email from DB: ${recipientEmail}`
+    );
   } else {
     recipientEmail = DEFAULT_ADMIN_EMAIL;
+    console.log(
+      `[sendDepositRequestEmail] Using default email: ${recipientEmail}`
+    );
   }
 
   if (!recipientEmail) {
-    console.log("No admin email configured, skipping email send");
+    console.log(
+      "[sendDepositRequestEmail] No admin email configured, skipping email send"
+    );
     return;
   }
 
   try {
+    // בדיקת תקינות ה-transporter
+    try {
+      await transporter.verify();
+      console.log(
+        `[sendDepositRequestEmail] Transporter verified successfully`
+      );
+    } catch (verifyError: any) {
+      console.error(
+        `[sendDepositRequestEmail] Transporter verification failed:`,
+        {
+          message: verifyError?.message,
+          code: verifyError?.code,
+        }
+      );
+    }
+
     const approveUrl = `${URL_PRODUCTION}/admin/bankroll`;
     const formattedAmount = amountInShekels.toLocaleString("he-IL");
+
+    console.log(`[sendDepositRequestEmail] Email config check:`, {
+      EMAIL_USER: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
+      EMAIL_PASS: EMAIL_PASS ? "SET" : "NOT SET",
+      URL_PRODUCTION: URL_PRODUCTION,
+    });
 
     const mailOptions = {
       from: EMAIL_USER,
@@ -212,12 +265,38 @@ export async function sendDepositRequestEmail(
       `,
     };
 
+    console.log(`[sendDepositRequestEmail] Attempting to send email:`, {
+      from: EMAIL_USER,
+      to: recipientEmail,
+      subject: `בקשה חדשה לטעינת כסף לקופה - ${userName}`,
+      requestId: requestId,
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log(`[sendDepositRequestEmail] Calling transporter.sendMail...`);
     const result = await transporter.sendMail(mailOptions);
     console.log(
-      `Email sent successfully to ${recipientEmail} for deposit request from ${userName}`
+      `[sendDepositRequestEmail] Email sent successfully to ${recipientEmail} for deposit request from ${userName}`
     );
+    console.log(`[sendDepositRequestEmail] Email result:`, {
+      messageId: result.messageId,
+      accepted: result.accepted,
+      rejected: result.rejected,
+      response: result.response,
+      pending: result.pending,
+    });
   } catch (error: any) {
-    console.error("Error sending deposit request email:", error);
+    console.error(
+      "[sendDepositRequestEmail] Error sending deposit request email:",
+      error
+    );
+    console.error(`[sendDepositRequestEmail] Error details:`, {
+      message: error?.message,
+      code: error?.code,
+      response: error?.response,
+      responseCode: error?.responseCode,
+      stack: error?.stack,
+    });
   }
 }
 
@@ -227,8 +306,19 @@ export async function sendJoinGameRequestEmail(
   gameId: string,
   adminEmail?: string
 ) {
+  console.log(
+    `[sendJoinGameRequestEmail] Starting - User: ${userName}, Amount: ${amount}, GameId: ${gameId}`
+  );
+
   if (!EMAIL_USER || !EMAIL_PASS) {
-    console.error("Email credentials not configured");
+    console.error(
+      "[sendJoinGameRequestEmail] Email credentials not configured"
+    );
+    console.error(
+      `[sendJoinGameRequestEmail] EMAIL_USER: ${
+        EMAIL_USER ? "SET" : "NOT SET"
+      }, EMAIL_PASS: ${EMAIL_PASS ? "SET" : "NOT SET"}`
+    );
     return;
   }
 
@@ -236,19 +326,49 @@ export async function sendJoinGameRequestEmail(
 
   if (adminEmail && adminEmail.trim() !== "") {
     recipientEmail = adminEmail.trim();
+    console.log(
+      `[sendJoinGameRequestEmail] Using admin email from DB: ${recipientEmail}`
+    );
   } else {
     recipientEmail = DEFAULT_ADMIN_EMAIL;
+    console.log(
+      `[sendJoinGameRequestEmail] Using default email: ${recipientEmail}`
+    );
   }
 
   if (!recipientEmail) {
-    console.log("No admin email configured, skipping email send");
+    console.log(
+      "[sendJoinGameRequestEmail] No admin email configured, skipping email send"
+    );
     return;
   }
 
   try {
+    // בדיקת תקינות ה-transporter
+    try {
+      await transporter.verify();
+      console.log(
+        `[sendJoinGameRequestEmail] Transporter verified successfully`
+      );
+    } catch (verifyError: any) {
+      console.error(
+        `[sendJoinGameRequestEmail] Transporter verification failed:`,
+        {
+          message: verifyError?.message,
+          code: verifyError?.code,
+        }
+      );
+    }
+
     const adminUrl = `${URL_PRODUCTION}/admin/games`;
     const formattedAmount = amount.toLocaleString("he-IL");
     const shekelsAmount = (amount / 100).toFixed(2);
+
+    console.log(`[sendJoinGameRequestEmail] Email config check:`, {
+      EMAIL_USER: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
+      EMAIL_PASS: EMAIL_PASS ? "SET" : "NOT SET",
+      URL_PRODUCTION: URL_PRODUCTION,
+    });
 
     const mailOptions = {
       from: EMAIL_USER,
@@ -290,11 +410,37 @@ export async function sendJoinGameRequestEmail(
       `,
     };
 
+    console.log(`[sendJoinGameRequestEmail] Attempting to send email:`, {
+      from: EMAIL_USER,
+      to: recipientEmail,
+      subject: `בקשה חדשה להצטרפות למשחק - ${userName}`,
+      gameId: gameId,
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log(`[sendJoinGameRequestEmail] Calling transporter.sendMail...`);
     const result = await transporter.sendMail(mailOptions);
     console.log(
-      `Email sent successfully to ${recipientEmail} for join game request from ${userName}`
+      `[sendJoinGameRequestEmail] Email sent successfully to ${recipientEmail} for join game request from ${userName}`
     );
+    console.log(`[sendJoinGameRequestEmail] Email result:`, {
+      messageId: result.messageId,
+      accepted: result.accepted,
+      rejected: result.rejected,
+      response: result.response,
+      pending: result.pending,
+    });
   } catch (error: any) {
-    console.error("Error sending join game request email:", error);
+    console.error(
+      "[sendJoinGameRequestEmail] Error sending join game request email:",
+      error
+    );
+    console.error(`[sendJoinGameRequestEmail] Error details:`, {
+      message: error?.message,
+      code: error?.code,
+      response: error?.response,
+      responseCode: error?.responseCode,
+      stack: error?.stack,
+    });
   }
 }
