@@ -1,17 +1,21 @@
 import nodemailer from "nodemailer";
 
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASS = process.env.EMAIL_PASS;
+// טרימינג של משתני הסביבה כדי להסיר רווחים ותווי שורה נסתרים
+// זה חשוב במיוחד בפרודקשן (Vercel) שם הערכים עלולים להכיל תווים מיותרים
+const EMAIL_USER = process.env.EMAIL_USER?.trim();
+const EMAIL_PASS = process.env.EMAIL_PASS?.trim();
 const DEFAULT_ADMIN_EMAIL = "yigalipsey1996@gmail.com"; // fallback אם אין מייל במסד נתונים
-const URL_PRODUCTION =
-  process.env.URL_PRODUCTION || "https://poker-soret-rn26.vercel.app";
+const URL_PRODUCTION = (
+  process.env.URL_PRODUCTION || "https://poker-soret-rn26.vercel.app"
+).trim();
 
 // יצירת transporter לשליחת מיילים
+// חשוב: EMAIL_USER ו-EMAIL_PASS כבר עברו trim() כדי להסיר רווחים ותווי שורה
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASS,
+    user: EMAIL_USER || undefined, // רק אם יש ערך
+    pass: EMAIL_PASS || undefined, // רק אם יש ערך
   },
   // הוספת לוגים נוספים
   debug: process.env.NODE_ENV === "development", // יראה לוגים מפורטים בפיתוח
@@ -22,9 +26,13 @@ const transporter = nodemailer.createTransport({
 console.log(`[email.ts] 📧 Email transporter initialized:`, {
   service: "gmail",
   emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
-  emailPass: EMAIL_PASS ? "SET" : "NOT SET",
+  emailPass: EMAIL_PASS ? `SET (length: ${EMAIL_PASS.length})` : "NOT SET",
+  emailPassHasWhitespace: EMAIL_PASS ? EMAIL_PASS !== EMAIL_PASS.trim() : false,
   urlProduction: URL_PRODUCTION,
   nodeEnv: process.env.NODE_ENV || "development",
+  // בדיקה אם יש רווחים או תווי שורה בערך המקורי
+  originalEmailPassLength: process.env.EMAIL_PASS?.length || 0,
+  trimmedEmailPassLength: EMAIL_PASS?.length || 0,
 });
 
 export async function sendBuyInRequestEmail(
@@ -39,11 +47,24 @@ export async function sendBuyInRequestEmail(
   );
 
   if (!EMAIL_USER || !EMAIL_PASS) {
-    console.error("Email credentials not configured");
+    console.error("❌ Email credentials not configured");
     console.error(
       `[sendBuyInRequestEmail] EMAIL_USER: ${
-        EMAIL_USER ? "SET" : "NOT SET"
-      }, EMAIL_PASS: ${EMAIL_PASS ? "SET" : "NOT SET"}`
+        EMAIL_USER ? `SET (length: ${EMAIL_USER.length})` : "NOT SET"
+      }, EMAIL_PASS: ${
+        EMAIL_PASS ? `SET (length: ${EMAIL_PASS.length})` : "NOT SET"
+      }`
+    );
+    console.error(
+      `[sendBuyInRequestEmail] Original env values - EMAIL_USER: ${
+        process.env.EMAIL_USER
+          ? `SET (length: ${process.env.EMAIL_USER.length})`
+          : "NOT SET"
+      }, EMAIL_PASS: ${
+        process.env.EMAIL_PASS
+          ? `SET (length: ${process.env.EMAIL_PASS.length})`
+          : "NOT SET"
+      }`
     );
     return;
   }
@@ -206,11 +227,26 @@ export async function sendDepositRequestEmail(
   );
 
   if (!EMAIL_USER || !EMAIL_PASS) {
-    console.error("[sendDepositRequestEmail] Email credentials not configured");
+    console.error(
+      "❌ [sendDepositRequestEmail] Email credentials not configured"
+    );
     console.error(
       `[sendDepositRequestEmail] EMAIL_USER: ${
-        EMAIL_USER ? "SET" : "NOT SET"
-      }, EMAIL_PASS: ${EMAIL_PASS ? "SET" : "NOT SET"}`
+        EMAIL_USER ? `SET (length: ${EMAIL_USER.length})` : "NOT SET"
+      }, EMAIL_PASS: ${
+        EMAIL_PASS ? `SET (length: ${EMAIL_PASS.length})` : "NOT SET"
+      }`
+    );
+    console.error(
+      `[sendDepositRequestEmail] Original env values - EMAIL_USER: ${
+        process.env.EMAIL_USER
+          ? `SET (length: ${process.env.EMAIL_USER.length})`
+          : "NOT SET"
+      }, EMAIL_PASS: ${
+        process.env.EMAIL_PASS
+          ? `SET (length: ${process.env.EMAIL_PASS.length})`
+          : "NOT SET"
+      }`
     );
     return;
   }
@@ -367,12 +403,25 @@ export async function sendJoinGameRequestEmail(
 
   if (!EMAIL_USER || !EMAIL_PASS) {
     console.error(
-      "[sendJoinGameRequestEmail] Email credentials not configured"
+      "❌ [sendJoinGameRequestEmail] Email credentials not configured"
     );
     console.error(
       `[sendJoinGameRequestEmail] EMAIL_USER: ${
-        EMAIL_USER ? "SET" : "NOT SET"
-      }, EMAIL_PASS: ${EMAIL_PASS ? "SET" : "NOT SET"}`
+        EMAIL_USER ? `SET (length: ${EMAIL_USER.length})` : "NOT SET"
+      }, EMAIL_PASS: ${
+        EMAIL_PASS ? `SET (length: ${EMAIL_PASS.length})` : "NOT SET"
+      }`
+    );
+    console.error(
+      `[sendJoinGameRequestEmail] Original env values - EMAIL_USER: ${
+        process.env.EMAIL_USER
+          ? `SET (length: ${process.env.EMAIL_USER.length})`
+          : "NOT SET"
+      }, EMAIL_PASS: ${
+        process.env.EMAIL_PASS
+          ? `SET (length: ${process.env.EMAIL_PASS.length})`
+          : "NOT SET"
+      }`
     );
     return;
   }
