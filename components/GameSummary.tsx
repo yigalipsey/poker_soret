@@ -141,63 +141,6 @@ export default function GameSummary({ game }: { game: any }) {
           </table>
         </div>
       </div>
-
-      {/* התחשבנות */}
-      {game.settlementTransfers && game.settlementTransfers.length > 0 && (
-        <div className="mt-8 glass rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-500/20 rounded-lg">
-              <Coins className="w-5 h-5 text-purple-400" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-200">התחשבנות</h2>
-          </div>
-          <div className="space-y-3">
-            {game.settlementTransfers.map((t: any, i: number) => (
-              <div
-                key={i}
-                className="flex items-center gap-1 sm:gap-3 bg-slate-800/40 p-3 sm:p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/60 transition"
-              >
-                <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                  <Avatar
-                    name={t.payerId?.name || "Unknown"}
-                    imageUrl={t.payerId?.avatarUrl}
-                    size="sm"
-                  />
-                  <span className="font-bold text-rose-400 text-sm sm:text-lg truncate">
-                    {t.payerId?.name || "Unknown"}
-                  </span>
-                </div>
-                <span className="text-slate-500 text-xs sm:text-sm shrink-0">
-                  ←
-                </span>
-                <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                  <span className="font-bold text-emerald-400 text-sm sm:text-lg truncate">
-                    {t.receiverId?.name || "Unknown"}
-                  </span>
-                  <Avatar
-                    name={t.receiverId?.name || "Unknown"}
-                    imageUrl={t.receiverId?.avatarUrl}
-                    size="sm"
-                  />
-                </div>
-                <div className="font-mono font-bold text-amber-400 text-xs sm:text-xl bg-amber-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg border border-amber-500/20 shrink-0 whitespace-nowrap">
-                  ₪{t.amount?.toFixed(2)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {game.settlementTransfers && game.settlementTransfers.length === 0 && (
-        <div className="mt-8 glass rounded-xl p-6">
-          <div className="text-center py-8 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
-            <p className="text-emerald-400 font-bold text-lg">
-              כולם מאוזנים! אין העברות נדרשות.
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
