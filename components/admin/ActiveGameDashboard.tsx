@@ -298,25 +298,6 @@ export default function ActiveGameDashboard({
         </section>
       )}
 
-      {/* Shared Bankroll Mode Indicator */}
-      {game.isSharedBankroll && (
-        <section className="glass-card p-4 rounded-xl border-purple-500/30 bg-purple-900/10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-purple-400" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-purple-400">
-                משחק במצב קופה משותפת
-              </h3>
-              <p className="text-xs text-purple-300/80 mt-0.5">
-                שחקנים יכולים להכניס רק כסף שהוטען להם בקופה המשותפת
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* Pending Join Game Requests */}
       {pendingJoinRequests && pendingJoinRequests.length > 0 && (
         <section className="glass-card p-4 rounded-xl border-blue-500/30 bg-blue-900/10">
@@ -400,7 +381,9 @@ export default function ActiveGameDashboard({
           <div className="flex items-start gap-3">
             <AlertCircle className="w-6 h-6 text-rose-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-rose-400 font-bold text-lg">{errorMessage}</p>
+              <p className="text-rose-400 font-bold text-lg whitespace-pre-line">
+                {errorMessage}
+              </p>
             </div>
             <button
               onClick={() => setErrorMessage(null)}

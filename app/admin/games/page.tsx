@@ -32,7 +32,11 @@ export default async function AdminGamesPage() {
 
   // טעינת בקשות הצטרפות ממתינות אם יש משחק פעיל
   const pendingJoinRequests = activeGame
-    ? await getPendingJoinGameRequests(activeGame._id)
+    ? await getPendingJoinGameRequests(
+        typeof activeGame._id === "string"
+          ? activeGame._id
+          : activeGame._id?.toString() || ""
+      )
     : [];
 
   return (

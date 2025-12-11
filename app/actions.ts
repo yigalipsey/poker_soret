@@ -140,7 +140,11 @@ export async function createUser(
       hasPassword: !!userData.password,
     });
 
-    const user = await User.create(userData);
+    const userResult = await User.create(userData);
+    // User.create can return an array or a single document, but we're passing a single object
+    const user = Array.isArray(userResult)
+      ? userResult[0]
+      : (userResult as any);
 
     console.log(`[createUser] User created successfully:`, {
       userId: user._id.toString(),
@@ -1068,11 +1072,11 @@ export async function addPlayerToGame(
     const gameIdString =
       typeof gameId === "string"
         ? gameId
-        : gameId?.toString() || String(gameId);
+        : (gameId as any)?.toString() || String(gameId);
     const userIdString =
       typeof userId === "string"
         ? userId
-        : userId?.toString() || String(userId);
+        : (userId as any)?.toString() || String(userId);
 
     console.log(
       `[addPlayerToGame] Starting - GameId: ${gameIdString}, UserId: ${userIdString}, InitialBuyIn: ${initialBuyIn}`
@@ -1134,15 +1138,33 @@ export async function addPlayerToGame(
 
       // אם אין כסף מוטען בכלל, לא ניתן להוסיף את השחקן
       if (currentBankroll === 0) {
+        // קבלת שם השחקן להודעה
+        const user = await User.findById(userIdString);
+        const userName = user?.name || "השחקן";
+
         throw new Error(
-          "לא ניתן להוסיף שחקן למשחק במצב קופה משותפת ללא כסף מוטען. נא להטעין כסף לשחקן תחילה."
+          `❌ לא ניתן להוסיף את ${userName} למשחק\n\n` +
+            `הסיבה: אין יתרה בקופה המשותפת\n` +
+            `יתרה נוכחית: 0 זיטונים\n\n` +
+            `📝 פתרון: נא להטעין כסף לשחקן בקופה המשותפת דרך דף ניהול הקופה לפני הוספתו למשחק.`
         );
       }
 
       // בדיקה שהסכום המבוקש לא עולה על הכסף המוטען
       if (initialBuyIn > currentBankroll) {
+        // קבלת שם השחקן להודעה
+        const user = await User.findById(userIdString);
+        const userName = user?.name || "השחקן";
+
         throw new Error(
-          `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${initialBuyIn.toLocaleString()} זיטונים`
+          `❌ לא ניתן להוסיף את ${userName} למשחק\n\n` +
+            `הסיבה: אין מספיק יתרה בקופה המשותפת\n` +
+            `יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים\n` +
+            `סכום מבוקש: ${initialBuyIn.toLocaleString()} זיטונים\n` +
+            `חסר: ${(
+              initialBuyIn - currentBankroll
+            ).toLocaleString()} זיטונים\n\n` +
+            `📝 פתרון: נא להטעין כסף נוסף לשחקן בקופה המשותפת או להקטין את סכום הכניסה הראשונית.`
         );
       }
     }
@@ -1202,8 +1224,14 @@ export async function addPlayerToGame(
     console.error("[addPlayerToGame] Error details:", {
       message: error?.message,
       stack: error?.stack,
-      gameId: typeof gameId === "string" ? gameId : gameId?.toString(),
-      userId: typeof userId === "string" ? userId : userId?.toString(),
+      gameId:
+        typeof gameId === "string"
+          ? gameId
+          : (gameId as any)?.toString() || String(gameId),
+      userId:
+        typeof userId === "string"
+          ? userId
+          : (userId as any)?.toString() || String(userId),
       initialBuyIn,
     });
     throw error;
