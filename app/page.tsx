@@ -5,6 +5,7 @@ import {
   getClubSession,
   getClub,
   getPlayerSession,
+  getUserPendingJoinRequest,
 } from "./actions";
 import connectDB from "@/lib/db";
 import Club from "@/models/Club";
@@ -28,6 +29,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import ClubLoginScreen from "@/components/ClubLoginScreen";
 import ClubLogoutButton from "@/components/ClubLogoutButton";
 import QuickBuyInRequest from "@/components/QuickBuyInRequest";
+import RequestJoinGame from "@/components/RequestJoinGame";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +53,28 @@ export default async function Home() {
     getActiveGame(clubId),
     getGameHistory(clubId),
   ]);
+
+  // בדיקה אם השחקן במשחק הפעיל
+  let isPlayerInGame = false;
+  let userPendingRequest = null;
+  if (activeGame && currentUser) {
+    const userId = currentUser._id;
+    const player = activeGame.players.find((p: any) => {
+      const playerId = p.userId._id
+        ? p.userId._id.toString()
+        : p.userId.toString();
+      return playerId === userId;
+    });
+    isPlayerInGame = !!player;
+
+    // אם השחקן לא במשחק, בדוק אם יש בקשה ממתינה
+    if (!isPlayerInGame) {
+      userPendingRequest = await getUserPendingJoinRequest(
+        activeGame._id,
+        currentUser._id
+      );
+    }
+  }
 
   // מאזן מועדון כולל - סכום של כל ה-globalBalance של המשתמשים
   // הערה: globalBalance לא מתעדכן יותר כי עברנו להתחשבנות לפי משחק ספציפי
@@ -166,10 +190,21 @@ export default async function Home() {
                 </TiltCard>
               </Link>
               <div className="mt-[13px]">
-                <QuickBuyInRequest
-                  game={activeGame}
-                  currentUser={currentUser}
-                />
+                {isPlayerInGame ? (
+                  <QuickBuyInRequest
+                    game={activeGame}
+                    currentUser={currentUser}
+                  />
+                ) : (
+                  currentUser && (
+                    <RequestJoinGame
+                      game={activeGame}
+                      currentUser={currentUser}
+                      club={club}
+                      userPendingRequest={userPendingRequest}
+                    />
+                  )
+                )}
               </div>
             </div>
           );

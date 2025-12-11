@@ -7,15 +7,31 @@ import { revalidatePath } from "next/cache";
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
-    const { adminEmail } = await request.json();
+    const { adminEmail: rawAdminEmail } = await request.json();
 
-    // בדיקת תקינות כתובת המייל
+    // בדיקת תקינות כתובת המייל - תמיכה במספר מיילים מופרדים בפסיקים
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (adminEmail && !emailRegex.test(adminEmail)) {
-      return NextResponse.json(
-        { error: "כתובת מייל לא תקינה" },
-        { status: 400 }
-      );
+    let adminEmail: string | null = null;
+
+    if (rawAdminEmail) {
+      // פיצול לפי פסיקים או שורות חדשות
+      const emails = rawAdminEmail
+        .split(/[,;\n]/)
+        .map((e: string) => e.trim())
+        .filter((e: string) => e.length > 0);
+
+      // בדיקה שכל מייל תקין
+      for (const email of emails) {
+        if (typeof email === "string" && !emailRegex.test(email)) {
+          return NextResponse.json(
+            { error: `כתובת מייל לא תקינה: ${email}` },
+            { status: 400 }
+          );
+        }
+      }
+
+      // שמירה כמערך מופרד בפסיקים
+      adminEmail = emails.join(",");
     }
 
     const clubId = await getClubSession();

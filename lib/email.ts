@@ -70,25 +70,30 @@ export async function sendBuyInRequestEmail(
   }
 
   // שימוש במייל מהמסד נתונים רק אם הוא מוגדר ולא ריק
-  // אם אין מייל מוגדר במסד הנתונים, נשתמש ב-DEFAULT רק כ-fallback
-  // אבל אם המשתמש הגדיר מייל במסד הנתונים, נשתמש בו בלבד
-  let recipientEmail: string | null = null;
+  // תמיכה במספר מיילים מופרדים בפסיקים
+  let recipientEmails: string[] = [];
 
   if (adminEmail && adminEmail.trim() !== "") {
     // יש מייל מוגדר במסד הנתונים - נשתמש בו
-    recipientEmail = adminEmail.trim();
+    // פיצול לפי פסיקים (תמיכה במספר מיילים)
+    recipientEmails = adminEmail
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
   } else {
     // אין מייל מוגדר - נשתמש ב-DEFAULT כ-fallback
-    recipientEmail = DEFAULT_ADMIN_EMAIL;
+    recipientEmails = [DEFAULT_ADMIN_EMAIL];
   }
+
+  console.log(`[sendBuyInRequestEmail] Recipient emails:`, recipientEmails);
 
   console.log(
     `[sendBuyInRequestEmail] Admin email from DB: ${
       adminEmail || "undefined"
-    }, Using: ${recipientEmail}`
+    }, Using ${recipientEmails.length} email(s): ${recipientEmails.join(", ")}`
   );
 
-  if (!recipientEmail) {
+  if (recipientEmails.length === 0) {
     console.log("No admin email configured, skipping email send");
     return;
   }
@@ -124,12 +129,14 @@ export async function sendBuyInRequestEmail(
       EMAIL_USER: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
       EMAIL_PASS: EMAIL_PASS ? "SET" : "NOT SET",
       URL_PRODUCTION: URL_PRODUCTION,
-      recipientEmail: recipientEmail,
+      recipientEmails: recipientEmails.join(", "),
+      recipientCount: recipientEmails.length,
     });
 
+    // שליחה לכל המיילים
     const mailOptions = {
       from: EMAIL_USER,
-      to: recipientEmail,
+      to: recipientEmails.join(","), // מספר מיילים מופרדים בפסיקים
       subject: `בקשה חדשה לכניסה למשחק - ${userName}`,
       html: `
         <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
@@ -166,7 +173,8 @@ export async function sendBuyInRequestEmail(
 
     console.log(`[sendBuyInRequestEmail] 📧 Attempting to send email:`, {
       from: EMAIL_USER,
-      to: recipientEmail,
+      to: recipientEmails.join(", "),
+      toCount: recipientEmails.length,
       subject: `בקשה חדשה לכניסה למשחק - ${userName}`,
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || "development",
@@ -178,7 +186,11 @@ export async function sendBuyInRequestEmail(
     const duration = Date.now() - startTime;
 
     console.log(
-      `[sendBuyInRequestEmail] ✅ Email sent successfully to ${recipientEmail} for buy-in request from ${userName} (took ${duration}ms)`
+      `[sendBuyInRequestEmail] ✅ Email sent successfully to ${
+        recipientEmails.length
+      } recipient(s) (${recipientEmails.join(
+        ", "
+      )}) for buy-in request from ${userName} (took ${duration}ms)`
     );
     console.log(`[sendBuyInRequestEmail] 📊 Email result:`, {
       messageId: result.messageId,
@@ -207,7 +219,8 @@ export async function sendBuyInRequestEmail(
       command: error?.command,
       stack: error?.stack,
       timestamp: new Date().toISOString(),
-      recipientEmail: recipientEmail,
+      recipientEmails: recipientEmails.join(", "),
+      recipientCount: recipientEmails.length,
       emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
     });
     // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
@@ -251,21 +264,30 @@ export async function sendDepositRequestEmail(
     return;
   }
 
-  let recipientEmail: string | null = null;
+  // תמיכה במספר מיילים מופרדים בפסיקים
+  let recipientEmails: string[] = [];
 
   if (adminEmail && adminEmail.trim() !== "") {
-    recipientEmail = adminEmail.trim();
+    // פיצול לפי פסיקים (תמיכה במספר מיילים)
+    recipientEmails = adminEmail
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
     console.log(
-      `[sendDepositRequestEmail] Using admin email from DB: ${recipientEmail}`
+      `[sendDepositRequestEmail] Using admin email(s) from DB: ${recipientEmails.join(
+        ", "
+      )}`
     );
   } else {
-    recipientEmail = DEFAULT_ADMIN_EMAIL;
+    recipientEmails = [DEFAULT_ADMIN_EMAIL];
     console.log(
-      `[sendDepositRequestEmail] Using default email: ${recipientEmail}`
+      `[sendDepositRequestEmail] Using default email: ${DEFAULT_ADMIN_EMAIL}`
     );
   }
 
-  if (!recipientEmail) {
+  console.log(`[sendDepositRequestEmail] Recipient emails:`, recipientEmails);
+
+  if (recipientEmails.length === 0) {
     console.log(
       "[sendDepositRequestEmail] No admin email configured, skipping email send"
     );
@@ -300,7 +322,7 @@ export async function sendDepositRequestEmail(
 
     const mailOptions = {
       from: EMAIL_USER,
-      to: recipientEmail,
+      to: recipientEmails.join(","), // מספר מיילים מופרדים בפסיקים
       subject: `בקשה חדשה לטעינת כסף לקופה - ${userName}`,
       html: `
         <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
@@ -340,7 +362,8 @@ export async function sendDepositRequestEmail(
 
     console.log(`[sendDepositRequestEmail] 📧 Attempting to send email:`, {
       from: EMAIL_USER,
-      to: recipientEmail,
+      to: recipientEmails.join(", "),
+      toCount: recipientEmails.length,
       subject: `בקשה חדשה לטעינת כסף לקופה - ${userName}`,
       requestId: requestId,
       timestamp: new Date().toISOString(),
@@ -352,7 +375,11 @@ export async function sendDepositRequestEmail(
     const result = await transporter.sendMail(mailOptions);
     const duration = Date.now() - startTime;
     console.log(
-      `[sendDepositRequestEmail] ✅ Email sent successfully to ${recipientEmail} for deposit request from ${userName} (took ${duration}ms)`
+      `[sendDepositRequestEmail] ✅ Email sent successfully to ${
+        recipientEmails.length
+      } recipient(s) (${recipientEmails.join(
+        ", "
+      )}) for deposit request from ${userName} (took ${duration}ms)`
     );
     console.log(`[sendDepositRequestEmail] 📊 Email result:`, {
       messageId: result.messageId,
@@ -383,7 +410,8 @@ export async function sendDepositRequestEmail(
       command: error?.command,
       stack: error?.stack,
       timestamp: new Date().toISOString(),
-      recipientEmail: recipientEmail,
+      recipientEmails: recipientEmails.join(", "),
+      recipientCount: recipientEmails.length,
       emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
     });
     // השגיאה תתפוס ב-app/actions.ts ולא תעצור את התהליך
@@ -426,21 +454,30 @@ export async function sendJoinGameRequestEmail(
     return;
   }
 
-  let recipientEmail: string | null = null;
+  // תמיכה במספר מיילים מופרדים בפסיקים
+  let recipientEmails: string[] = [];
 
   if (adminEmail && adminEmail.trim() !== "") {
-    recipientEmail = adminEmail.trim();
+    // פיצול לפי פסיקים (תמיכה במספר מיילים)
+    recipientEmails = adminEmail
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
     console.log(
-      `[sendJoinGameRequestEmail] Using admin email from DB: ${recipientEmail}`
+      `[sendJoinGameRequestEmail] Using admin email(s) from DB: ${recipientEmails.join(
+        ", "
+      )}`
     );
   } else {
-    recipientEmail = DEFAULT_ADMIN_EMAIL;
+    recipientEmails = [DEFAULT_ADMIN_EMAIL];
     console.log(
-      `[sendJoinGameRequestEmail] Using default email: ${recipientEmail}`
+      `[sendJoinGameRequestEmail] Using default email: ${DEFAULT_ADMIN_EMAIL}`
     );
   }
 
-  if (!recipientEmail) {
+  console.log(`[sendJoinGameRequestEmail] Recipient emails:`, recipientEmails);
+
+  if (recipientEmails.length === 0) {
     console.log(
       "[sendJoinGameRequestEmail] No admin email configured, skipping email send"
     );
@@ -476,7 +513,7 @@ export async function sendJoinGameRequestEmail(
 
     const mailOptions = {
       from: EMAIL_USER,
-      to: recipientEmail,
+      to: recipientEmails.join(","), // מספר מיילים מופרדים בפסיקים
       subject: `בקשה חדשה להצטרפות למשחק - ${userName}`,
       html: `
         <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
@@ -516,7 +553,8 @@ export async function sendJoinGameRequestEmail(
 
     console.log(`[sendJoinGameRequestEmail] 📧 Attempting to send email:`, {
       from: EMAIL_USER,
-      to: recipientEmail,
+      to: recipientEmails.join(", "),
+      toCount: recipientEmails.length,
       subject: `בקשה חדשה להצטרפות למשחק - ${userName}`,
       gameId: gameId,
       timestamp: new Date().toISOString(),
@@ -531,7 +569,11 @@ export async function sendJoinGameRequestEmail(
     const duration = Date.now() - startTime;
 
     console.log(
-      `[sendJoinGameRequestEmail] ✅ Email sent successfully to ${recipientEmail} for join game request from ${userName} (took ${duration}ms)`
+      `[sendJoinGameRequestEmail] ✅ Email sent successfully to ${
+        recipientEmails.length
+      } recipient(s) (${recipientEmails.join(
+        ", "
+      )}) for join game request from ${userName} (took ${duration}ms)`
     );
     console.log(`[sendJoinGameRequestEmail] 📊 Email result:`, {
       messageId: result.messageId,
@@ -562,10 +604,12 @@ export async function sendJoinGameRequestEmail(
       command: error?.command,
       stack: error?.stack,
       timestamp: new Date().toISOString(),
-      recipientEmail: recipientEmail,
+      recipientEmails: recipientEmails.join(", "),
+      recipientCount: recipientEmails.length,
       emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
     });
     // השגיאה תתפוס ב-app/actions.ts ולא תעצור את התהליך
     // אבל הלוגים יופיעו בלוגים של Vercel
   }
 }
+

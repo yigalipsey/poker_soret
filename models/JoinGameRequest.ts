@@ -60,3 +60,4 @@ const JoinGameRequest: Model<IJoinGameRequest> =
   mongoose.model<IJoinGameRequest>("JoinGameRequest", JoinGameRequestSchema);
 
 export default JoinGameRequest;
+

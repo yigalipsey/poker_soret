@@ -50,3 +50,4 @@ const ClubBankroll: Model<IClubBankroll> =
   mongoose.model<IClubBankroll>("ClubBankroll", ClubBankrollSchema);
 
 export default ClubBankroll;
+

@@ -54,3 +54,4 @@ const DepositRequest: Model<IDepositRequest> =
   mongoose.model<IDepositRequest>("DepositRequest", DepositRequestSchema);
 
 export default DepositRequest;
+

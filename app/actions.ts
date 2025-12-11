@@ -2141,6 +2141,55 @@ export async function approveJoinGameRequest(requestId: string) {
 }
 
 /**
+ * קבלת כל הבקשות הממתינות למועדון (להצגת התראות)
+ */
+export async function getAllPendingRequests(clubId: string) {
+  await connectDB();
+
+  const [depositRequests, activeGame] = await Promise.all([
+    getPendingDepositRequests(clubId),
+    getActiveGame(clubId),
+  ]);
+
+  let joinGameRequests: any[] = [];
+  let buyInRequests: any[] = [];
+
+  if (activeGame) {
+    const gameIdString =
+      typeof activeGame._id === "string"
+        ? activeGame._id
+        : activeGame._id?.toString() || "";
+
+    // בקשות הצטרפות למשחק
+    joinGameRequests = await getPendingJoinGameRequests(gameIdString);
+
+    // בקשות כניסה נוספת (buy-in requests)
+    if (activeGame.players) {
+      buyInRequests = activeGame.players.flatMap((p: any) =>
+        (p.buyInRequests || [])
+          .filter((r: any) => r.status === "pending")
+          .map((r: any) => ({
+            ...r,
+            playerId: p.userId._id?.toString() || p.userId.toString(),
+            playerName: p.userId.name || "שחקן",
+            gameId: gameIdString,
+          }))
+      );
+    }
+  }
+
+  return {
+    depositRequests: depositRequests || [],
+    joinGameRequests: joinGameRequests || [],
+    buyInRequests: buyInRequests || [],
+    totalCount:
+      (depositRequests?.length || 0) +
+      (joinGameRequests?.length || 0) +
+      (buyInRequests?.length || 0),
+  };
+}
+
+/**
  * עדכון קופה אחרי משחק (רווח/הפסד)
  * במצב קופה משותפת: מוסיף את הרווח/הפסד לקופה המשותפת של השחקן
  * הערה: הכנסת כסף למשחק לא מורידה מהקופה, רק סיום המשחק מעדכן את הקופה לפי הרווח/הפסד
