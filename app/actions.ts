@@ -583,6 +583,33 @@ export async function cashOutPlayer(
   revalidatePath("/admin");
 }
 
+export async function cancelCashOut(gameId: string, userId: string) {
+  await connectDB();
+  const game = await GameSession.findById(gameId);
+  if (!game) throw new Error("Game not found");
+
+  const player = game.players.find((p) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
+  if (!player) throw new Error("Player not found");
+
+  if (!player.isCashedOut) {
+    throw new Error("Player has not cashed out");
+  }
+
+  // ביטול יציאה - החזרת השחקן למשחק
+  player.isCashedOut = false;
+  player.cashOut = 0;
+  player.netProfit = 0;
+
+  await game.save();
+  revalidatePath("/admin");
+  revalidatePath(`/game/${gameId}`);
+}
+
 export async function calculateSettlementAction(gameId: string) {
   await connectDB();
   const game = await GameSession.findById(gameId).populate("players.userId");

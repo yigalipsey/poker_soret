@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { createGame } from "@/app/actions";
 import { Loader2, Play, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatChips, chipsToShekels, formatShekels } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
 
 export default function CreateGameForm({
@@ -35,6 +35,7 @@ export default function CreateGameForm({
 
   const chipOptions = [
     { value: 0, label: "0" },
+    { value: 1000, label: "1,000 (₪10)" },
     { value: 2000, label: "2,000 (₪20)" },
     { value: 3000, label: "3,000 (₪30)" },
     { value: 4000, label: "4,000 (₪40)" },
@@ -52,6 +53,9 @@ export default function CreateGameForm({
   ];
 
   const updateBuyIn = (id: string, value: string) => {
+    if (value === "custom") {
+      return;
+    }
     const numValue = parseInt(value) || 0;
     setBuyIns((prev) => ({ ...prev, [id]: numValue }));
   };
@@ -146,15 +150,33 @@ export default function CreateGameForm({
                     </select>
                   </div>
                   {showCustomInputs[user._id] && (
-                    <input
-                      type="number"
-                      min="0"
-                      value={buyIn || ""}
-                      onChange={(e) => updateBuyIn(user._id, e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                      placeholder="הזן זיטונים"
-                    />
+                    <div>
+                      <input
+                        type="number"
+                        min="0"
+                        value={buyIn ? Math.floor(buyIn / 1000) : ""}
+                        onChange={(e) => {
+                          const value = Number(e.target.value) || 0;
+                          setBuyIns((prev) => ({
+                            ...prev,
+                            [user._id]: value * 1000,
+                          }));
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                        placeholder="לדוגמה: 54"
+                      />
+                      {buyIn && buyIn > 0 && (
+                        <div className="text-xs text-slate-500 mt-1">
+                          = {formatChips(buyIn)} (
+                          {formatShekels(chipsToShekels(buyIn))})
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-500 mt-1">
+                        הערך יוכפל ב-1,000 אוטומטית (לדוגמה: 54 = 54,000
+                        זיטונים)
+                      </p>
+                    </div>
                   )}
                 </div>
               )}

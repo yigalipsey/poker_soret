@@ -77,9 +77,9 @@ export default function GameSummary({ game }: { game: any }) {
             <thead className="bg-slate-900/50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-800">
               <tr>
                 <th className="p-4 font-medium">שחקן</th>
-                <th className="p-4 font-medium">כניסה</th>
-                <th className="p-4 font-medium">יציאה</th>
                 <th className="p-4 font-medium">רווח/הפסד</th>
+                <th className="p-4 font-medium">יציאה</th>
+                <th className="p-4 font-medium">כניסה</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
@@ -99,18 +99,6 @@ export default function GameSummary({ game }: { game: any }) {
                         {p.userId.name}
                       </span>
                     </div>
-                  </td>
-                  <td className="p-4 font-mono text-slate-400">
-                    {formatChips(p.totalApprovedBuyIn)}
-                    <span className="text-xs text-slate-600 ml-2">
-                      ({formatShekels(chipsToShekels(p.totalApprovedBuyIn))})
-                    </span>
-                  </td>
-                  <td className="p-4 font-mono text-slate-400">
-                    {formatChips(p.cashOut)}
-                    <span className="text-xs text-slate-600 ml-2">
-                      ({formatShekels(chipsToShekels(p.cashOut))})
-                    </span>
                   </td>
                   <td className="p-4">
                     <div
@@ -134,6 +122,18 @@ export default function GameSummary({ game }: { game: any }) {
                         ({formatChips(p.netProfit)})
                       </span>
                     </div>
+                  </td>
+                  <td className="p-4 font-mono text-slate-400">
+                    {formatChips(p.cashOut)}
+                    <span className="text-xs text-slate-600 ml-2">
+                      ({formatShekels(chipsToShekels(p.cashOut))})
+                    </span>
+                  </td>
+                  <td className="p-4 font-mono text-slate-400">
+                    {formatChips(p.totalApprovedBuyIn)}
+                    <span className="text-xs text-slate-600 ml-2">
+                      ({formatShekels(chipsToShekels(p.totalApprovedBuyIn))})
+                    </span>
                   </td>
                 </tr>
               ))}

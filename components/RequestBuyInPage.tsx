@@ -57,6 +57,7 @@ export default function RequestBuyInPage({
 
   const chipOptions = [
     { value: 0, label: "בחר סכום" },
+    { value: 1000, label: "1,000 (₪10)" },
     { value: 2000, label: "2,000 (₪20)" },
     { value: 3000, label: "3,000 (₪30)" },
     { value: 4000, label: "4,000 (₪40)" },
@@ -74,7 +75,9 @@ export default function RequestBuyInPage({
   ];
 
   async function handleRequest() {
-    const finalAmount = showCustomInput ? Number(customAmount) || 0 : amount;
+    const finalAmount = showCustomInput
+      ? (Number(customAmount) || 0) * 1000
+      : amount;
 
     if (finalAmount <= 0) {
       alert("נא לבחור סכום כניסה");
@@ -93,7 +96,9 @@ export default function RequestBuyInPage({
     }
   }
 
-  const selectedAmount = showCustomInput ? Number(customAmount) || 0 : amount;
+  const selectedAmount = showCustomInput
+    ? (Number(customAmount) || 0) * 1000
+    : amount;
 
   return (
     <div className="glass-card p-6 rounded-2xl space-y-6">
@@ -126,16 +131,27 @@ export default function RequestBuyInPage({
       {showCustomInput && (
         <div>
           <label className="block text-sm font-medium text-slate-400 mb-3">
-            הזן סכום מותאם
+            הזן סכום מותאם (באלפים)
           </label>
-          <input
-            type="number"
-            min="0"
-            value={customAmount}
-            onChange={(e) => setCustomAmount(e.target.value)}
-            placeholder="הזן זיטונים"
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-lg"
-          />
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value)}
+              placeholder="לדוגמה: 54"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-lg"
+            />
+            {customAmount && Number(customAmount) > 0 && (
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+                = {formatChips(Number(customAmount) * 1000)} (
+                {formatShekels(chipsToShekels(Number(customAmount) * 1000))})
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            הערך יוכפל ב-1,000 אוטומטית (לדוגמה: 54 = 54,000 זיטונים)
+          </p>
         </div>
       )}
 

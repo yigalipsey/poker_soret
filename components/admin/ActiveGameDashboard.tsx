@@ -8,6 +8,7 @@ import {
   cashOutPlayer,
   cancelBuyIn,
   removePlayerFromGame,
+  cancelCashOut,
 } from "@/app/actions";
 import {
   Loader2,
@@ -60,6 +61,9 @@ export default function ActiveGameDashboard({
   const [cashOutPlayerId, setCashOutPlayerId] = useState<string | null>(null);
   const [cashOutAmount, setCashOutAmount] = useState<number>(0);
   const [showCustomCashOutAmount, setShowCustomCashOutAmount] = useState(false);
+  const [viewingBuyIns, setViewingBuyIns] = useState<Record<string, boolean>>(
+    {}
+  );
   const router = useRouter();
 
   const handleRemovePlayer = async (player: any) => {
@@ -111,6 +115,7 @@ export default function ActiveGameDashboard({
 
   const chipOptions = [
     { value: 0, label: "0" },
+    { value: 1000, label: "1,000 (₪10)" },
     { value: 2000, label: "2,000 (₪20)" },
     { value: 3000, label: "3,000 (₪30)" },
     { value: 4000, label: "4,000 (₪40)" },
@@ -255,6 +260,38 @@ export default function ActiveGameDashboard({
 
   return (
     <div className="space-y-6">
+      {/* End Game Button - בראש הקומפוננטה (רק כשלא במצב סיום) */}
+      {!ending && (
+        <section className="glass-card p-6 rounded-2xl border-rose-500/30 shadow-lg shadow-rose-900/20">
+          <button
+            onClick={() => setEnding(true)}
+            className="w-full bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white py-4 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-rose-900/20"
+          >
+            <LogOut className="w-5 h-5" />
+            סיום משחק
+          </button>
+        </section>
+      )}
+
+      {/* Ending Mode Indicator - אינדיקציה קטנה בראש כש במצב סיום */}
+      {ending && (
+        <section className="glass-card p-4 rounded-xl border-rose-500/30 bg-rose-900/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-rose-500/20 rounded-full flex items-center justify-center animate-pulse">
+              <AlertCircle className="w-5 h-5 text-rose-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-rose-400">
+                מצב סיום משחק פעיל
+              </h3>
+              <p className="text-xs text-rose-300/80 mt-0.5">
+                הזן סכומי יציאה לכל השחקנים למטה
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Error Message */}
       {errorMessage && (
         <div className="glass-card p-4 rounded-xl border-2 border-rose-500/70 bg-rose-500/20 animate-in slide-in-from-top-2 shadow-lg shadow-rose-900/30 sticky top-4 z-50">
@@ -319,9 +356,22 @@ export default function ActiveGameDashboard({
       )}
 
       {/* Active Players */}
-      <section className="glass-card p-6 rounded-2xl">
+      <section
+        className={cn(
+          "glass-card p-6 rounded-2xl transition-all",
+          ending && "border-rose-500/30 bg-rose-900/5"
+        )}
+      >
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h2 className="text-xl font-bold text-slate-200">שחקנים פעילים</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-slate-200">שחקנים פעילים</h2>
+            {ending && (
+              <div className="flex items-center gap-2 bg-rose-500/20 text-rose-400 px-3 py-1 rounded-lg border border-rose-500/30 animate-pulse">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-xs font-medium">מצב סיום</span>
+              </div>
+            )}
+          </div>
           <div className="flex gap-3 items-center w-full sm:w-auto flex-wrap">
             {users && users.length > 0 && (
               <button
@@ -430,16 +480,33 @@ export default function ActiveGameDashboard({
                       ))}
                     </select>
                     {showCustomBuyInForNewPlayer && (
-                      <input
-                        type="number"
-                        min="0"
-                        value={newPlayerBuyIn || ""}
-                        onChange={(e) =>
-                          setNewPlayerBuyIn(Number(e.target.value))
-                        }
-                        placeholder="הזן זיטונים"
-                        className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                      />
+                      <div className="flex-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={
+                            newPlayerBuyIn
+                              ? Math.floor(newPlayerBuyIn / 1000)
+                              : ""
+                          }
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 0;
+                            setNewPlayerBuyIn(val * 1000);
+                          }}
+                          placeholder="לדוגמה: 54"
+                          className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                        />
+                        {newPlayerBuyIn && newPlayerBuyIn > 0 && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            = {formatChips(newPlayerBuyIn)} (
+                            {formatShekels(chipsToShekels(newPlayerBuyIn))})
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-500 mt-1">
+                          הערך יוכפל ב-1,000 אוטומטית (לדוגמה: 54 = 54,000
+                          זיטונים)
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -539,7 +606,8 @@ export default function ActiveGameDashboard({
                   {!p.isCashedOut &&
                     !isBuyInOpen[p.userId._id] &&
                     cashOutPlayerId !==
-                      (p.userId._id?.toString() || p.userId.toString()) && (
+                      (p.userId._id?.toString() || p.userId.toString()) &&
+                    !ending && (
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleBuyInClick(p.userId._id)}
@@ -600,125 +668,193 @@ export default function ActiveGameDashboard({
                   </div>
                 )}
 
-                {/* רשימת כניסות */}
+                {/* כפתור צפה בכניסות */}
                 {!p.isCashedOut && (
                   <div className="mb-4">
-                    <div className="text-xs text-slate-500 mb-2">כניסות:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {p.buyInRequests
-                        ?.filter((req: any) => req.status === "approved")
-                        .map((req: any, idx: number) => {
-                          const buyInKey = `${p.userId._id}-${req._id || idx}`;
-                          const isExpanded =
-                            expandedBuyIn[buyInKey] === buyInKey;
-                          const timestamp = new Date(req.timestamp);
-                          const timeStr = timestamp.toLocaleTimeString(
-                            "he-IL",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              timeZone: "Asia/Jerusalem",
-                            }
-                          );
-                          const isInitial = req.isInitial || false;
-                          const addedBy = req.addedBy || "admin";
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          setViewingBuyIns((prev) => ({
+                            ...prev,
+                            [playerId]: !prev[playerId],
+                          }));
+                        }}
+                        className="bg-slate-700/50 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg border border-slate-600 transition font-medium text-sm flex items-center gap-2"
+                      >
+                        {viewingBuyIns[playerId]
+                          ? "הסתר כניסות"
+                          : "צפה בכניסות"}
+                      </button>
+                      <div className="text-sm text-slate-400">
+                        <span className="font-mono text-emerald-400 font-bold">
+                          {formatChips(p.totalApprovedBuyIn || 0)}
+                        </span>
+                        <span className="text-xs text-slate-500 mr-1">
+                          (
+                          {formatShekels(
+                            chipsToShekels(p.totalApprovedBuyIn || 0)
+                          )}
+                          )
+                        </span>
+                      </div>
+                    </div>
 
-                          return (
-                            <div key={req._id || idx} className="relative">
-                              <div
-                                onClick={() => {
-                                  setExpandedBuyIn((prev) => ({
-                                    ...prev,
-                                    [buyInKey]: isExpanded ? null : buyInKey,
-                                  }));
-                                }}
-                                className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-emerald-400 font-mono text-sm cursor-pointer hover:bg-emerald-500/30 transition relative"
-                              >
-                                {formatChips(req.amount)}
-                              </div>
-                              {isExpanded && (
-                                <div className="absolute top-full right-0 mt-1 z-10 bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-lg min-w-[200px]">
-                                  <div className="flex items-center justify-between gap-3 mb-1">
-                                    <span className="text-slate-400">שעה:</span>
-                                    <span className="text-slate-300 font-medium">
+                    {/* רשימת כניסות - מוצגת רק כשלוחצים על הכפתור */}
+                    {viewingBuyIns[playerId] && (
+                      <div className="mt-4 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
+                        <div className="text-sm font-medium text-slate-300 mb-3">
+                          כניסות של {p.userId.name}
+                        </div>
+                        <div className="space-y-2 mb-3">
+                          {p.buyInRequests
+                            ?.filter((req: any) => req.status === "approved")
+                            .map((req: any, idx: number) => {
+                              const buyInKey = `${p.userId._id}-${
+                                req._id || idx
+                              }`;
+                              const isExpanded =
+                                expandedBuyIn[buyInKey] === buyInKey;
+                              const timestamp = new Date(req.timestamp);
+                              const timeStr = timestamp.toLocaleTimeString(
+                                "he-IL",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  timeZone: "Asia/Jerusalem",
+                                }
+                              );
+                              const isInitial = req.isInitial || false;
+                              const addedBy = req.addedBy || "admin";
+
+                              return (
+                                <div key={req._id || idx} className="relative">
+                                  <div
+                                    onClick={() => {
+                                      setExpandedBuyIn((prev) => ({
+                                        ...prev,
+                                        [buyInKey]: isExpanded
+                                          ? null
+                                          : buyInKey,
+                                      }));
+                                    }}
+                                    className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-3 py-2 text-emerald-400 font-mono text-sm cursor-pointer hover:bg-emerald-500/30 transition relative flex items-center justify-between"
+                                  >
+                                    <span>{formatChips(req.amount)}</span>
+                                    <span className="text-xs text-slate-400">
                                       {timeStr}
                                     </span>
                                   </div>
-                                  <div className="flex items-center justify-between gap-3 mb-2">
-                                    <span className="text-slate-400">סוג:</span>
-                                    <div className="flex items-center gap-1 flex-wrap justify-end">
-                                      {isInitial && (
-                                        <span className="bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded text-[10px]">
-                                          ראשונית
+                                  {isExpanded && (
+                                    <div className="absolute top-full right-0 mt-1 z-10 bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs shadow-lg min-w-[200px]">
+                                      <div className="flex items-center justify-between gap-3 mb-1">
+                                        <span className="text-slate-400">
+                                          שעה:
                                         </span>
+                                        <span className="text-slate-300 font-medium">
+                                          {timeStr}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center justify-between gap-3 mb-2">
+                                        <span className="text-slate-400">
+                                          סוג:
+                                        </span>
+                                        <div className="flex items-center gap-1 flex-wrap justify-end">
+                                          {isInitial && (
+                                            <span className="bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded text-[10px]">
+                                              ראשונית
+                                            </span>
+                                          )}
+                                          <span className="text-slate-300 text-[10px]">
+                                            {addedBy === "admin"
+                                              ? "👤 מנהל"
+                                              : "👤 משתמש"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {!isInitial && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (
+                                              !confirm(
+                                                `האם אתה בטוח שברצונך למחוק כניסה זו של ${formatChips(
+                                                  req.amount
+                                                )}?`
+                                              )
+                                            ) {
+                                              return;
+                                            }
+                                            try {
+                                              setLoading(true);
+                                              await cancelBuyIn(
+                                                game._id,
+                                                p.userId._id?.toString() ||
+                                                  p.userId.toString(),
+                                                req._id.toString()
+                                              );
+                                              router.refresh();
+                                            } catch (error: any) {
+                                              setErrorMessage(
+                                                error?.message ||
+                                                  "שגיאה במחיקת כניסה"
+                                              );
+                                              setTimeout(
+                                                () => setErrorMessage(null),
+                                                5000
+                                              );
+                                            } finally {
+                                              setLoading(false);
+                                            }
+                                          }}
+                                          className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-2 py-1.5 rounded border border-rose-500/30 transition text-[10px] font-medium flex items-center justify-center gap-1 mt-2"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                          מחק כניסה
+                                        </button>
                                       )}
-                                      <span className="text-slate-300 text-[10px]">
-                                        {addedBy === "admin"
-                                          ? "👤 מנהל"
-                                          : "👤 משתמש"}
-                                      </span>
                                     </div>
-                                  </div>
-                                  {!isInitial && (
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (
-                                          !confirm(
-                                            `האם אתה בטוח שברצונך למחוק כניסה זו של ${formatChips(
-                                              req.amount
-                                            )}?`
-                                          )
-                                        ) {
-                                          return;
-                                        }
-                                        try {
-                                          setLoading(true);
-                                          await cancelBuyIn(
-                                            game._id,
-                                            p.userId._id?.toString() ||
-                                              p.userId.toString(),
-                                            req._id.toString()
-                                          );
-                                          router.refresh();
-                                        } catch (error: any) {
-                                          setErrorMessage(
-                                            error?.message ||
-                                              "שגיאה במחיקת כניסה"
-                                          );
-                                          setTimeout(
-                                            () => setErrorMessage(null),
-                                            5000
-                                          );
-                                        } finally {
-                                          setLoading(false);
-                                        }
-                                      }}
-                                      className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-2 py-1.5 rounded border border-rose-500/30 transition text-[10px] font-medium flex items-center justify-center gap-1 mt-2"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                      מחק כניסה
-                                    </button>
                                   )}
                                 </div>
+                              );
+                            })}
+                          {(!p.buyInRequests ||
+                            p.buyInRequests.filter(
+                              (req: any) => req.status === "approved"
+                            ).length === 0) && (
+                            <span className="text-slate-500 text-sm">
+                              אין כניסות
+                            </span>
+                          )}
+                        </div>
+                        {/* סיכום כניסות */}
+                        <div className="pt-3 border-t border-slate-700/50">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-slate-400">
+                              סה"כ כניסות:
+                            </span>
+                            <span className="text-lg font-bold text-emerald-400 font-mono">
+                              {formatChips(p.totalApprovedBuyIn || 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-sm text-slate-400">
+                              בשקלים:
+                            </span>
+                            <span className="text-sm font-medium text-slate-300">
+                              {formatShekels(
+                                chipsToShekels(p.totalApprovedBuyIn || 0)
                               )}
-                            </div>
-                          );
-                        })}
-                      {(!p.buyInRequests ||
-                        p.buyInRequests.filter(
-                          (req: any) => req.status === "approved"
-                        ).length === 0) && (
-                        <span className="text-slate-500 text-sm">
-                          אין כניסות
-                        </span>
-                      )}
-                    </div>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* טופס יציאה */}
                 {!p.isCashedOut &&
+                  !ending &&
                   cashOutPlayerId ===
                     (p.userId._id?.toString() || p.userId.toString()) && (
                     <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
@@ -742,7 +878,7 @@ export default function ActiveGameDashboard({
                           <label className="text-xs text-slate-500 mb-2 block">
                             סכום יציאה (זיטונים)
                           </label>
-                          <div className="flex gap-2">
+                          <div className="space-y-2">
                             <select
                               value={
                                 showCustomCashOutAmount
@@ -754,10 +890,11 @@ export default function ActiveGameDashboard({
                                   setShowCustomCashOutAmount(true);
                                 } else {
                                   setShowCustomCashOutAmount(false);
-                                  setCashOutAmount(Number(e.target.value));
+                                  const amount = Number(e.target.value);
+                                  setCashOutAmount(amount);
                                 }
                               }}
-                              className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
+                              className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
                             >
                               <option value="">בחר סכום יציאה</option>
                               {chipOptions.map((option) => (
@@ -766,17 +903,156 @@ export default function ActiveGameDashboard({
                                 </option>
                               ))}
                             </select>
-                            {showCustomCashOutAmount && (
-                              <input
-                                type="number"
-                                min="0"
-                                value={cashOutAmount || ""}
-                                onChange={(e) =>
-                                  setCashOutAmount(Number(e.target.value))
+                            {cashOutAmount > 0 && !showCustomCashOutAmount && (
+                              <div className="text-xs text-slate-500">
+                                = {formatChips(cashOutAmount)} (
+                                {formatShekels(chipsToShekels(cashOutAmount))})
+                              </div>
+                            )}
+                            {(cashOutAmount > 0 || showCustomCashOutAmount) && (
+                              <button
+                                onClick={async () => {
+                                  if (!cashOutAmount || cashOutAmount <= 0) {
+                                    setErrorMessage("נא להזין סכום יציאה");
+                                    setTimeout(
+                                      () => setErrorMessage(null),
+                                      3000
+                                    );
+                                    return;
+                                  }
+                                  try {
+                                    setLoading(true);
+                                    const userIdKey =
+                                      p.userId._id?.toString() ||
+                                      p.userId.toString();
+                                    await cashOutPlayer(
+                                      game._id,
+                                      userIdKey,
+                                      cashOutAmount
+                                    );
+                                    setCashOutPlayerId(null);
+                                    setCashOutAmount(0);
+                                    setShowCustomCashOutAmount(false);
+                                    router.refresh();
+                                  } catch (error: any) {
+                                    setErrorMessage(
+                                      error?.message || "שגיאה ביציאה מהמשחק"
+                                    );
+                                    setTimeout(
+                                      () => setErrorMessage(null),
+                                      5000
+                                    );
+                                  } finally {
+                                    setLoading(false);
+                                  }
+                                }}
+                                disabled={
+                                  loading ||
+                                  !cashOutAmount ||
+                                  cashOutAmount <= 0
                                 }
-                                placeholder="הזן זיטונים"
-                                className="flex-1 bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
-                              />
+                                className="w-full bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                              >
+                                {loading ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    מאשר...
+                                  </>
+                                ) : (
+                                  <>
+                                    <LogOut className="w-4 h-4" />
+                                    אשר יציאה
+                                  </>
+                                )}
+                              </button>
+                            )}
+                            {showCustomCashOutAmount && (
+                              <div className="space-y-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={
+                                    cashOutAmount
+                                      ? Math.floor(cashOutAmount / 1000)
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    const value = Number(e.target.value) || 0;
+                                    const finalAmount = value * 1000;
+                                    setCashOutAmount(finalAmount);
+                                  }}
+                                  placeholder="לדוגמה: 54"
+                                  className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm"
+                                />
+                                {cashOutAmount && cashOutAmount > 0 && (
+                                  <div className="text-xs text-slate-500">
+                                    = {formatChips(cashOutAmount)} (
+                                    {formatShekels(
+                                      chipsToShekels(cashOutAmount)
+                                    )}
+                                    )
+                                  </div>
+                                )}
+                                <button
+                                  onClick={async () => {
+                                    if (!cashOutAmount || cashOutAmount <= 0) {
+                                      setErrorMessage("נא להזין סכום יציאה");
+                                      setTimeout(
+                                        () => setErrorMessage(null),
+                                        3000
+                                      );
+                                      return;
+                                    }
+                                    try {
+                                      setLoading(true);
+                                      const userIdKey =
+                                        p.userId._id?.toString() ||
+                                        p.userId.toString();
+                                      await cashOutPlayer(
+                                        game._id,
+                                        userIdKey,
+                                        cashOutAmount
+                                      );
+                                      setCashOutPlayerId(null);
+                                      setCashOutAmount(0);
+                                      setShowCustomCashOutAmount(false);
+                                      router.refresh();
+                                    } catch (error: any) {
+                                      setErrorMessage(
+                                        error?.message || "שגיאה ביציאה מהמשחק"
+                                      );
+                                      setTimeout(
+                                        () => setErrorMessage(null),
+                                        5000
+                                      );
+                                    } finally {
+                                      setLoading(false);
+                                    }
+                                  }}
+                                  disabled={
+                                    loading ||
+                                    !cashOutAmount ||
+                                    cashOutAmount <= 0
+                                  }
+                                  className="w-full bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                  {loading ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      מאשר...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <LogOut className="w-4 h-4" />
+                                      אשר יציאה
+                                    </>
+                                  )}
+                                </button>
+                                <p className="text-xs text-slate-500">
+                                  הערך יוכפל ב-1,000 אוטומטית (לדוגמה: 54 =
+                                  54,000 זיטונים)
+                                </p>
+                              </div>
                             )}
                           </div>
                           <div className="mt-2 text-xs text-slate-500">
@@ -786,61 +1062,14 @@ export default function ActiveGameDashboard({
                         </div>
                         <div className="flex gap-2">
                           <button
-                            onClick={async () => {
-                              if (!cashOutAmount && cashOutAmount !== 0) {
-                                setErrorMessage("נא להזין סכום יציאה");
-                                setTimeout(() => setErrorMessage(null), 3000);
-                                return;
-                              }
-                              try {
-                                setLoading(true);
-                                const userIdKey =
-                                  p.userId._id?.toString() ||
-                                  p.userId.toString();
-                                await cashOutPlayer(
-                                  game._id,
-                                  userIdKey,
-                                  cashOutAmount
-                                );
-                                setCashOutPlayerId(null);
-                                setCashOutAmount(0);
-                                setShowCustomCashOutAmount(false);
-                                router.refresh();
-                              } catch (error: any) {
-                                setErrorMessage(
-                                  error?.message || "שגיאה ביציאה מהמשחק"
-                                );
-                                setTimeout(() => setErrorMessage(null), 5000);
-                              } finally {
-                                setLoading(false);
-                              }
-                            }}
-                            disabled={
-                              loading || (!cashOutAmount && cashOutAmount !== 0)
-                            }
-                            className="flex-1 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                          >
-                            {loading ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                מבצע יציאה...
-                              </>
-                            ) : (
-                              <>
-                                <LogOut className="w-4 h-4" />
-                                אישר יציאה
-                              </>
-                            )}
-                          </button>
-                          <button
                             onClick={() => {
                               setCashOutPlayerId(null);
                               setCashOutAmount(0);
                               setShowCustomCashOutAmount(false);
                             }}
-                            className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition"
+                            className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition"
                           >
-                            ביטול
+                            סגור
                           </button>
                         </div>
                       </div>
@@ -922,20 +1151,43 @@ export default function ActiveGameDashboard({
                           </div>
 
                           {showCustomBuyIn[p.userId._id] && (
-                            <input
-                              type="number"
-                              min="0"
-                              value={buyInAmounts[p.userId._id] || ""}
-                              onChange={(e) => {
-                                const val = Number(e.target.value);
-                                setBuyInAmounts((prev) => ({
-                                  ...prev,
-                                  [p.userId._id]: val,
-                                }));
-                              }}
-                              placeholder="הזן זיטונים"
-                              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                            />
+                            <div>
+                              <input
+                                type="number"
+                                min="0"
+                                value={
+                                  buyInAmounts[p.userId._id]
+                                    ? Math.floor(
+                                        buyInAmounts[p.userId._id] / 1000
+                                      )
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  const val = Number(e.target.value) || 0;
+                                  setBuyInAmounts((prev) => ({
+                                    ...prev,
+                                    [p.userId._id]: val * 1000,
+                                  }));
+                                }}
+                                placeholder="לדוגמה: 54"
+                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                              />
+                              {buyInAmounts[p.userId._id] &&
+                                buyInAmounts[p.userId._id] > 0 && (
+                                  <div className="text-xs text-slate-500 mt-1">
+                                    = {formatChips(buyInAmounts[p.userId._id])}{" "}
+                                    (
+                                    {formatShekels(
+                                      chipsToShekels(buyInAmounts[p.userId._id])
+                                    )}
+                                    )
+                                  </div>
+                                )}
+                              <p className="text-xs text-slate-500 mt-1">
+                                הערך יוכפל ב-1,000 אוטומטית (לדוגמה: 54 = 54,000
+                                זיטונים)
+                              </p>
+                            </div>
                           )}
                         </div>
                       )}
@@ -1032,45 +1284,78 @@ export default function ActiveGameDashboard({
                                   ))}
                                 </select>
                                 {showCustomCashOut[p.userId._id.toString()] && (
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={totalChipsInPot}
-                                    value={
-                                      cashOuts[p.userId._id.toString()] ?? ""
-                                    }
-                                    onChange={(e) => {
-                                      const userIdKey = p.userId._id.toString();
-                                      const value = Number(e.target.value);
-                                      if (value > totalChipsInPot) {
-                                        setErrorMessage(
-                                          `לא ניתן להזין יותר מ-${totalChipsInPot.toLocaleString()} זיטונים (סך הקופה)`
-                                        );
-                                        setTimeout(
-                                          () => setErrorMessage(null),
-                                          5000
-                                        );
-                                        return;
+                                  <div className="flex-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max={Math.floor(totalChipsInPot / 1000)}
+                                      value={
+                                        cashOuts[p.userId._id.toString()]
+                                          ? Math.floor(
+                                              cashOuts[
+                                                p.userId._id.toString()
+                                              ] / 1000
+                                            )
+                                          : ""
                                       }
-                                      setCashOuts({
-                                        ...cashOuts,
-                                        [userIdKey]: value,
-                                      });
-                                    }}
-                                    className={cn(
-                                      "flex-1 min-w-[120px] bg-slate-900/50 border rounded-lg px-3 py-2 text-white focus:ring-2 outline-none transition",
-                                      cashOuts[p.userId._id.toString()] ===
-                                        undefined ||
+                                      onChange={(e) => {
+                                        const userIdKey =
+                                          p.userId._id.toString();
+                                        const value =
+                                          Number(e.target.value) || 0;
+                                        const finalValue = value * 1000;
+                                        if (finalValue > totalChipsInPot) {
+                                          setErrorMessage(
+                                            `לא ניתן להזין יותר מ-${Math.floor(
+                                              totalChipsInPot / 1000
+                                            )} (${totalChipsInPot.toLocaleString()} זיטונים)`
+                                          );
+                                          setTimeout(
+                                            () => setErrorMessage(null),
+                                            5000
+                                          );
+                                          return;
+                                        }
+                                        setCashOuts({
+                                          ...cashOuts,
+                                          [userIdKey]: finalValue,
+                                        });
+                                      }}
+                                      className={cn(
+                                        "w-full bg-slate-900/50 border rounded-lg px-3 py-2 text-white focus:ring-2 outline-none transition",
                                         cashOuts[p.userId._id.toString()] ===
-                                          null
-                                        ? "border-slate-700 focus:ring-amber-500/50"
-                                        : (cashOuts[p.userId._id.toString()] ||
-                                            0) > totalChipsInPot
-                                        ? "border-rose-500/50 focus:ring-rose-500/50"
-                                        : "border-slate-700 focus:ring-amber-500/50"
-                                    )}
-                                    placeholder="הזן זיטונים"
-                                  />
+                                          undefined ||
+                                          cashOuts[p.userId._id.toString()] ===
+                                            null
+                                          ? "border-slate-700 focus:ring-amber-500/50"
+                                          : (cashOuts[
+                                              p.userId._id.toString()
+                                            ] || 0) > totalChipsInPot
+                                          ? "border-rose-500/50 focus:ring-rose-500/50"
+                                          : "border-slate-700 focus:ring-amber-500/50"
+                                      )}
+                                      placeholder="לדוגמה: 54"
+                                    />
+                                    {cashOuts[p.userId._id.toString()] &&
+                                      cashOuts[p.userId._id.toString()] > 0 && (
+                                        <div className="text-xs text-slate-500 mt-1">
+                                          ={" "}
+                                          {formatChips(
+                                            cashOuts[p.userId._id.toString()]
+                                          )}{" "}
+                                          (
+                                          {formatShekels(
+                                            chipsToShekels(
+                                              cashOuts[p.userId._id.toString()]
+                                            )
+                                          )}
+                                          )
+                                        </div>
+                                      )}
+                                    <p className="text-xs text-slate-500 mt-1">
+                                      הערך יוכפל ב-1,000 אוטומטית
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1082,11 +1367,44 @@ export default function ActiveGameDashboard({
                 {/* אם יצא - הצג את סכום היציאה + אפשרות לערוך אם יש שגיאה */}
                 {p.isCashedOut && (
                   <div className="space-y-2 pt-2 border-t border-slate-700/50">
-                    <div className="text-sm text-slate-400">
-                      יצא עם{" "}
-                      <span className="text-amber-400 font-mono font-bold">
-                        {formatChips(p.cashOut)}
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-slate-400">
+                        יצא עם{" "}
+                        <span className="text-amber-400 font-mono font-bold">
+                          {formatChips(p.cashOut)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (
+                            !confirm(
+                              `האם אתה בטוח שברצונך לבטל את היציאה של ${p.userId.name}? השחקן יחזור למשחק.`
+                            )
+                          ) {
+                            return;
+                          }
+                          try {
+                            setLoading(true);
+                            await cancelCashOut(
+                              game._id,
+                              p.userId._id?.toString() || p.userId.toString()
+                            );
+                            router.refresh();
+                          } catch (error: any) {
+                            setErrorMessage(
+                              error?.message || "שגיאה בביטול יציאה"
+                            );
+                            setTimeout(() => setErrorMessage(null), 5000);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading}
+                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-1.5 rounded-lg border border-rose-500/30 transition font-medium text-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <X className="w-3 h-3" />
+                        ביטול יציאה
+                      </button>
                     </div>
                     {errorMessage &&
                       !editingCashOut[p.userId._id.toString()] && (
@@ -1207,33 +1525,65 @@ export default function ActiveGameDashboard({
                           </button>
                         </div>
                         {showCustomCashOut[p.userId._id.toString()] && (
-                          <input
-                            type="number"
-                            min="0"
-                            max={totalChipsInPot}
-                            value={
-                              cashOuts[p.userId._id.toString()] ??
-                              p.cashOut ??
-                              ""
-                            }
-                            onChange={(e) => {
-                              const userIdKey = p.userId._id.toString();
-                              const value = Number(e.target.value);
-                              if (value > totalChipsInPot) {
-                                setErrorMessage(
-                                  `לא ניתן להזין יותר מ-${totalChipsInPot.toLocaleString()} זיטונים (סך הקופה)`
-                                );
-                                setTimeout(() => setErrorMessage(null), 5000);
-                                return;
+                          <div>
+                            <input
+                              type="number"
+                              min="0"
+                              max={Math.floor(totalChipsInPot / 1000)}
+                              value={
+                                cashOuts[p.userId._id.toString()] ?? p.cashOut
+                                  ? Math.floor(
+                                      (cashOuts[p.userId._id.toString()] ??
+                                        p.cashOut ??
+                                        0) / 1000
+                                    )
+                                  : ""
                               }
-                              setCashOuts({
-                                ...cashOuts,
-                                [userIdKey]: value,
-                              });
-                            }}
-                            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                            placeholder="הזן זיטונים"
-                          />
+                              onChange={(e) => {
+                                const userIdKey = p.userId._id.toString();
+                                const value = Number(e.target.value) || 0;
+                                const finalValue = value * 1000;
+                                if (finalValue > totalChipsInPot) {
+                                  setErrorMessage(
+                                    `לא ניתן להזין יותר מ-${Math.floor(
+                                      totalChipsInPot / 1000
+                                    )} (${totalChipsInPot.toLocaleString()} זיטונים)`
+                                  );
+                                  setTimeout(() => setErrorMessage(null), 5000);
+                                  return;
+                                }
+                                setCashOuts({
+                                  ...cashOuts,
+                                  [userIdKey]: finalValue,
+                                });
+                              }}
+                              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                              placeholder="לדוגמה: 54"
+                            />
+                            {(cashOuts[p.userId._id.toString()] ?? p.cashOut) >
+                              0 && (
+                              <div className="text-xs text-slate-500 mt-1">
+                                ={" "}
+                                {formatChips(
+                                  cashOuts[p.userId._id.toString()] ??
+                                    p.cashOut ??
+                                    0
+                                )}{" "}
+                                (
+                                {formatShekels(
+                                  chipsToShekels(
+                                    cashOuts[p.userId._id.toString()] ??
+                                      p.cashOut ??
+                                      0
+                                  )
+                                )}
+                                )
+                              </div>
+                            )}
+                            <p className="text-xs text-slate-500 mt-1">
+                              הערך יוכפל ב-1,000 אוטומטית
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1245,15 +1595,7 @@ export default function ActiveGameDashboard({
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-800/50">
-          {!ending ? (
-            <button
-              onClick={() => setEnding(true)}
-              className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/50 py-4 rounded-xl font-bold transition flex items-center justify-center gap-2"
-            >
-              <LogOut className="w-5 h-5" />
-              סיום משחק
-            </button>
-          ) : (
+          {ending && (
             <div className="space-y-4">
               {/* הצגת סך הקופה וסך ה-cashOut */}
               <div className="grid grid-cols-2 gap-4 p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
@@ -1367,25 +1709,72 @@ export default function ActiveGameDashboard({
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">
               סך זיטונים במשחק
             </div>
-            <div className="text-2xl font-bold text-emerald-400 font-mono mb-1">
+            <div className="text-2xl font-bold text-emerald-400 font-mono">
               {formatChips(totalChipsInPot)}
-            </div>
-            <div className="text-xs text-slate-500">
-              {formatShekels(chipsToShekels(totalChipsInPot))}
             </div>
           </div>
           <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">
-              כניסות כוללות
+              סך יציאות
             </div>
-            <div className="text-2xl font-bold text-amber-400 font-mono mb-1">
-              {formatChips(totalChipsInPot)}
-            </div>
-            <div className="text-xs text-slate-500">
-              {formatShekels(chipsToShekels(totalChipsInPot))}
+            <div className="text-2xl font-bold text-rose-400 font-mono">
+              {formatChips(totalCashOut)}
             </div>
           </div>
         </div>
+
+        {/* יציאות לפי שחקן */}
+        {totalCashOut > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-700/50">
+            <div className="space-y-2">
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">
+                יציאות לפי שחקן:
+              </div>
+              {game.players
+                .filter((p: any) => {
+                  if (p.isCashedOut) return true;
+                  const userIdKey =
+                    p.userId._id?.toString() || p.userId.toString();
+                  return (
+                    cashOuts[userIdKey] !== undefined &&
+                    cashOuts[userIdKey] !== null
+                  );
+                })
+                .map((p: any) => {
+                  const userIdKey =
+                    p.userId._id?.toString() || p.userId.toString();
+                  const cashOutValue = p.isCashedOut
+                    ? p.cashOut || 0
+                    : cashOuts[userIdKey] || 0;
+                  return (
+                    <div
+                      key={p.userId._id}
+                      className="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg border border-slate-700/30"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Avatar
+                          name={p.userId.name}
+                          imageUrl={p.userId.avatarUrl}
+                          size="sm"
+                        />
+                        <span className="text-sm font-medium text-slate-300">
+                          {p.userId.name}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-rose-400 font-mono">
+                          {formatChips(cashOutValue)}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {formatShekels(chipsToShekels(cashOutValue))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Help text */}
