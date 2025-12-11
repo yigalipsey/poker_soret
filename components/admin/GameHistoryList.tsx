@@ -14,8 +14,9 @@ import {
   ChevronLeft,
   Trash2,
   Loader2,
+  Wallet,
 } from "lucide-react";
-import { chipsToShekels } from "@/lib/utils";
+import { chipsToShekels, formatChips } from "@/lib/utils";
 
 export default function GameHistoryList({ gameHistory }: { gameHistory: any }) {
   const [showHistory, setShowHistory] = useState(false);
@@ -127,6 +128,12 @@ export default function GameHistoryList({ gameHistory }: { gameHistory: any }) {
                             <Coins className="w-4 h-4 text-amber-500" />₪
                             {chipsToShekels(totalPot).toFixed(2)}
                           </div>
+                          {game.isSharedBankroll && (
+                            <div className="flex items-center gap-1.5 text-xs text-purple-400 mt-1">
+                              <Wallet className="w-3 h-3" />
+                              <span>קופה משותפת</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="p-2 bg-slate-800/50 rounded-full group-hover:bg-amber-500/20 group-hover:text-amber-500 transition-colors">

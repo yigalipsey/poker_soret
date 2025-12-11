@@ -1,27 +1,44 @@
-import {
-  getUsers,
-  getActiveGame,
-  getGameHistory,
-  getClub,
-} from "@/app/actions";
-import AdminView from "@/components/AdminView";
-import GameHistoryList from "@/components/admin/GameHistoryList";
-import ChipsPerShekelSettings from "@/components/admin/ChipsPerShekelSettings";
+import { getClubSession, getActiveGame, getClub } from "@/app/actions";
+import LogoutButton from "@/components/admin/LogoutButton";
+import { redirect } from "next/navigation";
+import Link from "next/link";
 import ClubNameEditor from "@/components/admin/ClubNameEditor";
 import GameModeSettings from "@/components/admin/GameModeSettings";
-import PlayerBankrollManager from "@/components/admin/PlayerBankrollManager";
+import ChipsPerShekelSettings from "@/components/admin/ChipsPerShekelSettings";
 import AdminEmailSettings from "@/components/admin/AdminEmailSettings";
+import { ArrowRight } from "lucide-react";
 
-export default async function ClubManagement({ clubId }: { clubId: string }) {
-  const [club, users, activeGame, gameHistory] = await Promise.all([
+export const dynamic = "force-dynamic";
+
+export default async function AdminSettingsPage() {
+  const clubId = await getClubSession();
+
+  if (!clubId) {
+    redirect("/admin/login");
+  }
+
+  const [club, activeGame] = await Promise.all([
     getClub(clubId),
-    getUsers(clubId),
     getActiveGame(clubId),
-    getGameHistory(clubId),
   ]);
 
   return (
-    <div className="space-y-8">
+    <div className="pt-4 pb-24 space-y-8 min-h-screen px-4 max-w-2xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin"
+            className="text-slate-400 hover:text-white transition"
+          >
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+          <h1 className="text-3xl font-bold text-gradient tracking-tight text-right">
+            הגדרות מועדון
+          </h1>
+        </div>
+        <LogoutButton />
+      </div>
+
       {/* אינדיקטור מוד נוכחי - במוד קופה משותפת */}
       {club?.gameMode === "shared_bankroll" && (
         <div className="glass-card p-4 rounded-xl border-2 border-purple-500/50 bg-gradient-to-r from-purple-900/30 to-purple-800/20">
@@ -60,41 +77,19 @@ export default async function ClubManagement({ clubId }: { clubId: string }) {
         </div>
       )}
 
-      {/* Club Name Editor */}
       <ClubNameEditor clubId={clubId} currentName={club?.name} />
 
-      {/* Main Management Content */}
-      <AdminView
-        users={users}
-        activeGame={activeGame}
-        clubId={clubId}
-        club={club}
-      />
-      <GameHistoryList gameHistory={gameHistory} />
-
-      {/* Game Mode Settings */}
       <GameModeSettings
         clubId={clubId}
         currentMode={club?.gameMode || "free"}
         hasActiveGame={!!activeGame}
       />
 
-      {/* Player Bankroll Manager - רק במוד קופה משותפת */}
-      {club?.gameMode === "shared_bankroll" && (
-        <PlayerBankrollManager
-          users={users}
-          clubId={clubId}
-          chipsPerShekel={club?.chipsPerShekel || 100}
-        />
-      )}
-
-      {/* Chips Per Shekel Settings */}
       <ChipsPerShekelSettings
         clubId={clubId}
         currentValue={club?.chipsPerShekel || 100}
       />
 
-      {/* Admin Email Settings */}
       <AdminEmailSettings clubId={clubId} currentEmail={club?.adminEmail} />
     </div>
   );

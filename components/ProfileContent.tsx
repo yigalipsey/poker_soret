@@ -13,16 +13,22 @@ import {
   CheckCircle,
   AlertCircle,
   X,
+  Wallet,
 } from "lucide-react";
+import { formatChips, chipsToShekels, formatShekels } from "@/lib/utils";
+import { requestDeposit } from "@/app/actions";
+import { TrendingUp } from "lucide-react";
 
 export default function ProfileContent({
   currentUser,
   userClubs,
   hasClubSession,
+  club,
 }: {
   currentUser: any;
   userClubs: any[];
   hasClubSession: boolean;
+  club: any;
 }) {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
@@ -35,6 +41,8 @@ export default function ProfileContent({
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositLoading, setDepositLoading] = useState(false);
   const router = useRouter();
 
   async function handlePlayerLogin(e: React.FormEvent) {
@@ -387,6 +395,87 @@ export default function ProfileContent({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Deposit Request Section - רק במוד קופה משותפת */}
+      {club?.gameMode === "shared_bankroll" && currentUser && (
+        <div className="glass-card p-6 rounded-2xl mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-purple-500/20 rounded-lg">
+              <TrendingUp className="w-5 h-5 text-purple-500" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-200 text-right">
+              בקשת טעינת כסף לקופה
+            </h3>
+          </div>
+          <p className="text-slate-400 text-sm mb-4 text-right">
+            שלח בקשה למנהל להוספת כסף לקופה המשותפת שלך. המנהל יקבל מייל עם
+            קישור לאישור הבקשה.
+          </p>
+          <p className="text-slate-500 text-xs mb-4 text-right">
+            למשיכת זיטונים מהקופה למשחק, עבור לדף הראשי.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1 text-right">
+                סכום מבוקש (בשקלים)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                placeholder="לדוגמה: 100"
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 outline-none transition text-right"
+              />
+            </div>
+            <button
+              onClick={async () => {
+                const amount = Number(depositAmount);
+                if (!amount || amount <= 0) {
+                  setErrorMessage("נא להזין סכום תקין");
+                  setTimeout(() => setErrorMessage(null), 3000);
+                  return;
+                }
+
+                try {
+                  setDepositLoading(true);
+                  setErrorMessage(null);
+                  await requestDeposit(amount);
+                  setDepositAmount("");
+                  setSuccessMessage(
+                    `בקשה לטעינת ₪${amount.toLocaleString(
+                      "he-IL"
+                    )} נשלחה למנהל. תקבל עדכון לאחר אישור הבקשה.`
+                  );
+                  setTimeout(() => {
+                    setSuccessMessage(null);
+                    router.refresh();
+                  }, 5000);
+                } catch (error: any) {
+                  setErrorMessage(error?.message || "שגיאה בשליחת הבקשה");
+                  setTimeout(() => setErrorMessage(null), 5000);
+                } finally {
+                  setDepositLoading(false);
+                }
+              }}
+              disabled={
+                depositLoading || !depositAmount || Number(depositAmount) <= 0
+              }
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {depositLoading ? (
+                <Loader2 className="animate-spin w-5 h-5" />
+              ) : (
+                <>
+                  <TrendingUp className="w-5 h-5" />
+                  שלח בקשה לטעינה
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}

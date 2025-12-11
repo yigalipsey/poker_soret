@@ -31,6 +31,7 @@ export interface IGameSession extends Document {
   players: IPlayerSession[];
   settlementTransfers: ITransfer[];
   clubId?: mongoose.Types.ObjectId;
+  isSharedBankroll?: boolean; // האם המשחק במצב קופה משותפת
 }
 
 const RequestSchema = new Schema({
@@ -67,6 +68,7 @@ const GameSessionSchema = new Schema({
   players: [PlayerSessionSchema],
   settlementTransfers: [TransferSchema],
   clubId: { type: Schema.Types.ObjectId, ref: "Club", required: false },
+  isSharedBankroll: { type: Boolean, default: false }, // האם המשחק במצב קופה משותפת
 });
 
 const GameSession: Model<IGameSession> =

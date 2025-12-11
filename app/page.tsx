@@ -69,10 +69,26 @@ export default async function Home() {
   }, 0);
   const totalMoneyPlayed = chipsToShekels(totalMoneyPlayedChips); // המרה לשקלים
 
+  // חישוב קופה משותפת (רק במוד קופה משותפת)
+  const isSharedBankrollMode = club?.gameMode === "shared_bankroll";
+  let totalSharedBankroll = 0;
+  if (isSharedBankrollMode) {
+    // טעינת הקופה המשותפת מהמסד נתונים
+    const { default: ClubBankroll } = await import("@/models/ClubBankroll");
+    const { default: connectDB } = await import("@/lib/db");
+    await connectDB();
+    const clubBankroll = await ClubBankroll.findOne({ clubId }).lean();
+    totalSharedBankroll = clubBankroll?.totalBalance || 0;
+  }
+
   // Sort users by balance (descending) to highlight top players
-  const sortedUsers = [...users].sort(
-    (a, b) => b.globalBalance - a.globalBalance
-  );
+  // במוד קופה משותפת: מיון לפי bankroll, אחרת לפי globalBalance
+  const sortedUsers = [...users].sort((a, b) => {
+    if (isSharedBankrollMode) {
+      return (b.bankroll || 0) - (a.bankroll || 0);
+    }
+    return b.globalBalance - a.globalBalance;
+  });
 
   return (
     <div className="min-h-screen pb-24 px-4 pt-4 max-w-md mx-auto relative overflow-hidden">
@@ -222,6 +238,60 @@ export default async function Home() {
         </div>
       )}
 
+      {/* Shared Bankroll Display - רק במוד קופה משותפת */}
+      {isSharedBankrollMode && (
+        <div className="mb-8">
+          <TiltCard
+            className="glass-card rounded-2xl p-6 overflow-hidden group shadow-2xl shadow-purple-900/20"
+            glowColor="rgba(168, 85, 247, 0.3)"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-50"></div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-500/20 rounded-lg">
+                  <Wallet className="w-5 h-5 text-purple-400" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-200">
+                  קופה משותפת
+                </h3>
+              </div>
+              <div className="bg-gradient-to-br from-purple-900/30 to-purple-800/20 p-4 rounded-xl border border-purple-500/30 mb-4">
+                <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">
+                  סך הכל בקופה
+                </div>
+                <div className="text-3xl font-bold text-purple-400 font-mono mb-1">
+                  {formatChips(totalSharedBankroll)}
+                </div>
+                <div className="text-sm text-slate-500">
+                  {formatShekels(
+                    chipsToShekels(
+                      totalSharedBankroll,
+                      club?.chipsPerShekel || 100
+                    )
+                  )}
+                </div>
+              </div>
+              {currentUser && (
+                <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                  <div className="text-xs text-slate-400 mb-1">הקופה שלך</div>
+                  <div className="text-lg font-bold text-emerald-400 font-mono">
+                    {formatChips(currentUser.bankroll || 0)}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {formatShekels(
+                      chipsToShekels(
+                        currentUser.bankroll || 0,
+                        club?.chipsPerShekel || 100
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </TiltCard>
+        </div>
+      )}
+
       {/* Hero Stats - Premium Card */}
       <TiltCard
         className="glass-card rounded-3xl p-8 mb-10 overflow-hidden group animate-fade-in shadow-2xl shadow-amber-900/10"
@@ -327,41 +397,63 @@ export default async function Home() {
                       {user.name}
                     </h3>
                     <div className="flex items-center gap-2 text-xs">
-                      <span
-                        className={cn(
-                          "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider",
-                          user.globalBalance > 0
-                            ? "bg-emerald-500/10 text-emerald-400"
+                      {isSharedBankrollMode ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-purple-500/10 text-purple-400">
+                          {formatChips(user.bankroll || 0)} בקופה
+                        </span>
+                      ) : (
+                        <span
+                          className={cn(
+                            "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider",
+                            user.globalBalance > 0
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : user.globalBalance < 0
+                              ? "bg-rose-500/10 text-rose-400"
+                              : "bg-slate-500/10 text-slate-400"
+                          )}
+                        >
+                          {user.globalBalance > 0
+                            ? "מורווח"
                             : user.globalBalance < 0
-                            ? "bg-rose-500/10 text-rose-400"
-                            : "bg-slate-500/10 text-slate-400"
-                        )}
-                      >
-                        {user.globalBalance > 0
-                          ? "מורווח"
-                          : user.globalBalance < 0
-                          ? "מופסד"
-                          : "מאוזן"}
-                      </span>
+                            ? "מופסד"
+                            : "מאוזן"}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <div
-                    className={cn(
-                      "text-lg font-bold tracking-tight flex items-center gap-1 justify-end",
-                      user.globalBalance > 0
-                        ? "text-emerald-400"
-                        : user.globalBalance < 0
-                        ? "text-rose-400"
-                        : "text-slate-400"
-                    )}
-                  >
-                    {user.globalBalance > 0 ? "+" : ""}
-                    {user.globalBalance.toLocaleString()}
-                    <span className="text-xs font-normal opacity-70">₪</span>
-                  </div>
+                  {isSharedBankrollMode ? (
+                    <div className="text-lg font-bold tracking-tight flex items-center gap-1 justify-end text-purple-400">
+                      {formatChips(user.bankroll || 0)}
+                      <span className="text-xs font-normal opacity-70">
+                        (
+                        {formatShekels(
+                          chipsToShekels(
+                            user.bankroll || 0,
+                            club?.chipsPerShekel || 100
+                          )
+                        )}
+                        )
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      className={cn(
+                        "text-lg font-bold tracking-tight flex items-center gap-1 justify-end",
+                        user.globalBalance > 0
+                          ? "text-emerald-400"
+                          : user.globalBalance < 0
+                          ? "text-rose-400"
+                          : "text-slate-400"
+                      )}
+                    >
+                      {user.globalBalance > 0 ? "+" : ""}
+                      {user.globalBalance.toLocaleString()}
+                      <span className="text-xs font-normal opacity-70">₪</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </Link>

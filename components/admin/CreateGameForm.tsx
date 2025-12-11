@@ -8,9 +8,11 @@ import { Avatar } from "@/components/ui/Avatar";
 export default function CreateGameForm({
   users,
   clubId,
+  club,
 }: {
   users: any[];
   clubId?: string | null;
+  club?: any;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [buyIns, setBuyIns] = useState<Record<string, number>>({});
@@ -28,6 +30,19 @@ export default function CreateGameForm({
         return next;
       });
     } else {
+      // במצב קופה משותפת - בדיקה שיש כסף מוטען לפני הוספה
+      if (club?.gameMode === "shared_bankroll") {
+        const user = users.find((u) => u._id === id);
+        const bankroll = user?.bankroll || 0;
+        if (bankroll === 0) {
+          alert(
+            `לא ניתן להוסיף את ${
+              user?.name || "השחקן"
+            } למשחק במצב קופה משותפת ללא כסף מוטען. נא להטעין כסף לשחקן תחילה.`
+          );
+          return;
+        }
+      }
       setSelected((prev) => [...prev, id]);
       setBuyIns((prev) => ({ ...prev, [id]: 0 }));
     }
@@ -66,11 +81,45 @@ export default function CreateGameForm({
       alert("נא לבחור קלאב תחילה");
       return;
     }
+
+    // בדיקה במצב קופה משותפת - וידוא שכל השחקנים יש להם כסף מוטען ושהכניסות תקינות
+    if (club?.gameMode === "shared_bankroll") {
+      for (const playerId of selected) {
+        const user = users.find((u) => u._id === playerId);
+        if (!user) continue;
+
+        const bankroll = user.bankroll || 0;
+        if (bankroll === 0) {
+          alert(
+            `לא ניתן ליצור משחק עם ${user.name} - אין כסף מוטען בקופה המשותפת. נא להטעין כסף לשחקן תחילה.`
+          );
+          setLoading(false);
+          return;
+        }
+
+        const buyIn = buyIns[playerId] || 0;
+        if (buyIn > bankroll) {
+          alert(
+            `לא ניתן ליצור משחק - הכניסה של ${user.name} (${formatChips(
+              buyIn
+            )}) גדולה מהיתרה בקופה (${formatChips(bankroll)}).`
+          );
+          setLoading(false);
+          return;
+        }
+      }
+    }
+
     setLoading(true);
-    await createGame(selected, buyIns, clubId);
-    setLoading(false);
-    setSelected([]);
-    setBuyIns({});
+    try {
+      await createGame(selected, buyIns, clubId);
+      setSelected([]);
+      setBuyIns({});
+    } catch (error: any) {
+      alert(error?.message || "שגיאה ביצירת משחק");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -93,32 +142,85 @@ export default function CreateGameForm({
                 "p-4 rounded-xl border transition",
                 isSelected
                   ? "bg-amber-500/20 border-amber-500/50"
+                  : club?.gameMode === "shared_bankroll" &&
+                    (user.bankroll || 0) === 0
+                  ? "bg-rose-500/10 border-rose-500/30 opacity-60"
                   : "bg-slate-800/30 border-slate-700/50"
               )}
             >
               <div className="flex items-center justify-between mb-3">
                 <div
                   onClick={() => toggleUser(user._id)}
-                  className="flex items-center gap-2 cursor-pointer flex-1"
+                  className={cn(
+                    "flex items-center gap-2 flex-1",
+                    club?.gameMode === "shared_bankroll" &&
+                      (user.bankroll || 0) === 0
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer"
+                  )}
                 >
                   <Avatar
                     name={user.name}
                     imageUrl={user.avatarUrl}
                     size="sm"
                   />
-                  <span
-                    className={cn(
-                      "font-medium",
-                      isSelected ? "text-amber-400" : "text-slate-400"
+                  <div className="flex-1">
+                    <span
+                      className={cn(
+                        "font-medium block",
+                        isSelected ? "text-amber-400" : "text-slate-400"
+                      )}
+                    >
+                      {user.name}
+                    </span>
+                    {/* יתרת קופה - רק במוד קופה משותפת */}
+                    {club?.gameMode === "shared_bankroll" && (
+                      <span className="text-xs">
+                        יתרה:{" "}
+                        <span
+                          className={cn(
+                            "font-mono",
+                            (user.bankroll || 0) === 0
+                              ? "text-rose-400"
+                              : "text-purple-400"
+                          )}
+                        >
+                          {formatChips(user.bankroll || 0)}
+                        </span>
+                        {(user.bankroll || 0) === 0 && (
+                          <span className="text-rose-400 text-xs mr-1">
+                            {" "}
+                            (נדרש טעינה)
+                          </span>
+                        )}
+                      </span>
                     )}
-                  >
-                    {user.name}
-                  </span>
+                  </div>
                   {isSelected && <Check className="w-4 h-4 text-amber-500" />}
                 </div>
               </div>
               {isSelected && (
                 <div className="space-y-2">
+                  {/* אזהרה אם הכניסה גדולה מהיתרה */}
+                  {club?.gameMode === "shared_bankroll" &&
+                    buyIn > (user.bankroll || 0) && (
+                      <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg">
+                        <p className="text-xs text-rose-400 text-right">
+                          ⚠️ הכניסה גדולה מהיתרה! יתרה:{" "}
+                          {formatChips(user.bankroll || 0)}, נדרש:{" "}
+                          {formatChips(buyIn)}. הכנס עד{" "}
+                          {formatChips(user.bankroll || 0)} זיטונים.
+                        </p>
+                      </div>
+                    )}
+                  {/* הודעה במצב קופה משותפת על היתרה הזמינה */}
+                  {club?.gameMode === "shared_bankroll" && (
+                    <div className="p-2 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                      <p className="text-xs text-purple-400 text-right">
+                        💰 יתרה זמינה: {formatChips(user.bankroll || 0)} זיטונים
+                      </p>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <label className="text-sm text-slate-400 whitespace-nowrap">
                       זיטונים:
@@ -136,17 +238,40 @@ export default function CreateGameForm({
                             ...prev,
                             [user._id]: false,
                           }));
+                          const selectedValue = parseInt(e.target.value) || 0;
+                          // במצב קופה משותפת - בדיקה שהערך לא עולה על היתרה
+                          if (
+                            club?.gameMode === "shared_bankroll" &&
+                            selectedValue > (user.bankroll || 0)
+                          ) {
+                            alert(
+                              `לא ניתן להכניס יותר מ-${formatChips(
+                                user.bankroll || 0
+                              )} זיטונים (יתרה בקופה).`
+                            );
+                            return;
+                          }
                           updateBuyIn(user._id, e.target.value);
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
                       className="flex-1 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                     >
-                      {chipOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                      {chipOptions.map((option) => {
+                        // במצב קופה משותפת - הסתרת אפשרויות שעולות על היתרה
+                        if (
+                          club?.gameMode === "shared_bankroll" &&
+                          typeof option.value === "number" &&
+                          option.value > (user.bankroll || 0)
+                        ) {
+                          return null;
+                        }
+                        return (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                   {showCustomInputs[user._id] && (
@@ -157,9 +282,22 @@ export default function CreateGameForm({
                         value={buyIn ? Math.floor(buyIn / 1000) : ""}
                         onChange={(e) => {
                           const value = Number(e.target.value) || 0;
+                          const chipsValue = value * 1000;
+                          // במצב קופה משותפת - בדיקה שהערך לא עולה על היתרה
+                          if (
+                            club?.gameMode === "shared_bankroll" &&
+                            chipsValue > (user.bankroll || 0)
+                          ) {
+                            alert(
+                              `לא ניתן להכניס יותר מ-${formatChips(
+                                user.bankroll || 0
+                              )} זיטונים (יתרה בקופה).`
+                            );
+                            return;
+                          }
                           setBuyIns((prev) => ({
                             ...prev,
-                            [user._id]: value * 1000,
+                            [user._id]: chipsValue,
                           }));
                         }}
                         onClick={(e) => e.stopPropagation()}

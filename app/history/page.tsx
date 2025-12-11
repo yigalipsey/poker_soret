@@ -1,4 +1,4 @@
-import { getGameHistory, getClubSession } from "@/app/actions";
+import { getGameHistory, getClubSession, getClub } from "@/app/actions";
 import Link from "next/link";
 import {
   Calendar,
@@ -7,8 +7,9 @@ import {
   ArrowRight,
   Trophy,
   Coins,
+  Wallet,
 } from "lucide-react";
-import { cn, chipsToShekels } from "@/lib/utils";
+import { cn, chipsToShekels, formatChips } from "@/lib/utils";
 import ClubLoginScreen from "@/components/ClubLoginScreen";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,12 @@ export default async function HistoryPage() {
     );
   }
 
-  const games = await getGameHistory(clubId);
+  const [games, club] = await Promise.all([
+    getGameHistory(clubId),
+    getClub(clubId),
+  ]);
+
+  const isSharedBankrollMode = club?.gameMode === "shared_bankroll";
 
   return (
     <div className="min-h-screen pb-24 px-4 pt-4 max-w-md mx-auto relative overflow-hidden">
@@ -93,9 +99,15 @@ export default async function HistoryPage() {
                       <span>{game.players.length} שחקנים</span>
                     </div>
                     <div className="font-bold text-slate-200 flex items-center gap-1.5">
-                      <Coins className="w-4 h-4 text-amber-500" />₪
-                      {totalPot.toLocaleString()}
+                      <Coins className="w-4 h-4 text-amber-500" />
+                      {chipsToShekels(totalPot).toFixed(2)} ₪
                     </div>
+                    {game.isSharedBankroll && (
+                      <div className="flex items-center gap-1.5 text-xs text-purple-400 mt-1">
+                        <Wallet className="w-3 h-3" />
+                        <span>קופה משותפת</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="p-2 bg-slate-800/50 rounded-full group-hover:bg-amber-500/20 group-hover:text-amber-500 transition-colors">

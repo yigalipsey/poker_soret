@@ -20,6 +20,7 @@ import {
   LogOut,
   UserPlus,
   Trash2,
+  Wallet,
 } from "lucide-react";
 import { cn, formatChips, chipsToShekels, formatShekels } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -28,9 +29,11 @@ import { Avatar } from "@/components/ui/Avatar";
 export default function ActiveGameDashboard({
   game,
   users,
+  club,
 }: {
   game: any;
   users?: any[];
+  club?: any;
 }) {
   const [ending, setEnding] = useState(false);
   const [cashOuts, setCashOuts] = useState<Record<string, number>>({});
@@ -286,6 +289,25 @@ export default function ActiveGameDashboard({
               </h3>
               <p className="text-xs text-rose-300/80 mt-0.5">
                 הזן סכומי יציאה לכל השחקנים למטה
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Shared Bankroll Mode Indicator */}
+      {game.isSharedBankroll && (
+        <section className="glass-card p-4 rounded-xl border-purple-500/30 bg-purple-900/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
+              <Wallet className="w-5 h-5 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-purple-400">
+                משחק במצב קופה משותפת
+              </h3>
+              <p className="text-xs text-purple-300/80 mt-0.5">
+                שחקנים יכולים להכניס רק כסף שהוטען להם בקופה המשותפת
               </p>
             </div>
           </div>
@@ -594,14 +616,27 @@ export default function ActiveGameDashboard({
                       imageUrl={p.userId.avatarUrl}
                       size="md"
                     />
-                    <span className="font-medium text-slate-300 text-lg">
-                      {p.userId.name}
-                    </span>
-                    {p.isCashedOut && (
-                      <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">
-                        יצא
-                      </span>
-                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-300 text-lg">
+                          {p.userId.name}
+                        </span>
+                        {p.isCashedOut && (
+                          <span className="text-xs text-slate-500 bg-slate-700/50 px-2 py-1 rounded">
+                            יצא
+                          </span>
+                        )}
+                      </div>
+                      {/* יתרת קופה - רק במוד קופה משותפת */}
+                      {club?.gameMode === "shared_bankroll" && (
+                        <div className="text-xs text-slate-500 mt-1">
+                          יתרה:{" "}
+                          <span className="font-mono text-purple-400">
+                            {formatChips(p.userId.bankroll || 0)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {!p.isCashedOut &&
                     !isBuyInOpen[p.userId._id] &&
@@ -609,12 +644,58 @@ export default function ActiveGameDashboard({
                       (p.userId._id?.toString() || p.userId.toString()) &&
                     !ending && (
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleBuyInClick(p.userId._id)}
-                          className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg border border-emerald-500/30 transition font-medium text-sm whitespace-nowrap"
-                        >
-                          + הוסף כניסה
-                        </button>
+                        {/* בדיקה במצב קופה משותפת - האם יש כסף זמין להוספה */}
+                        {(() => {
+                          const isSharedBankroll =
+                            game.isSharedBankroll ||
+                            club?.gameMode === "shared_bankroll";
+                          const bankroll = p.userId.bankroll || 0;
+                          const alreadyInGame = p.totalApprovedBuyIn || 0;
+                          const availableToAdd = bankroll - alreadyInGame;
+                          const canAddMore =
+                            !isSharedBankroll || availableToAdd > 0;
+
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => {
+                                  // בדיקה במצב קופה משותפת - האם יש כסף זמין
+                                  if (isSharedBankroll && availableToAdd <= 0) {
+                                    setErrorMessage(
+                                      `אין כסף זמין להוספה. יתרה בקופה: ${formatChips(
+                                        bankroll
+                                      )}, כבר במשחק: ${formatChips(
+                                        alreadyInGame
+                                      )}`
+                                    );
+                                    setTimeout(
+                                      () => setErrorMessage(null),
+                                      5000
+                                    );
+                                    return;
+                                  }
+                                  handleBuyInClick(p.userId._id);
+                                }}
+                                disabled={
+                                  isSharedBankroll && availableToAdd <= 0
+                                }
+                                className={cn(
+                                  "px-3 py-1.5 rounded-lg border transition font-medium text-sm whitespace-nowrap",
+                                  isSharedBankroll && availableToAdd <= 0
+                                    ? "bg-slate-700/50 text-slate-500 border-slate-600 cursor-not-allowed"
+                                    : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                )}
+                              >
+                                + הוסף כניסה
+                              </button>
+                              {isSharedBankroll && availableToAdd <= 0 && (
+                                <div className="text-xs text-rose-400 text-right">
+                                  אין כסף זמין להוספה
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <button
                           onClick={() => {
                             const userIdKey =
@@ -1082,115 +1163,253 @@ export default function ActiveGameDashboard({
                     (p.userId._id?.toString() || p.userId.toString()) && (
                     <div className="space-y-3">
                       {/* כניסה חדשה - מפושט */}
-                      {isBuyInOpen[p.userId._id] && (
-                        <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 space-y-3">
-                          <div className="text-sm text-slate-400 text-center mb-1">
-                            בחר סכום כניסה:
-                          </div>
-                          <div className="flex gap-2 items-center">
-                            <button
-                              onClick={() => {
-                                const amount = buyInAmounts[p.userId._id] || 0;
-                                if (amount > 0) {
-                                  import("@/app/actions").then((mod) =>
-                                    mod.adminAddBuyIn(
-                                      game._id,
-                                      p.userId._id,
-                                      amount
-                                    )
-                                  );
-                                  setIsBuyInOpen((prev) => ({
-                                    ...prev,
-                                    [p.userId._id]: false,
-                                  }));
-                                  router.refresh();
-                                }
-                              }}
-                              disabled={(buyInAmounts[p.userId._id] || 0) === 0}
-                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium whitespace-nowrap"
-                            >
-                              אשר כניסה
-                            </button>
-                            <select
-                              value={
-                                showCustomBuyIn[p.userId._id]
-                                  ? "custom"
-                                  : buyInAmounts[p.userId._id] || 0
-                              }
-                              onChange={(e) => {
-                                if (e.target.value === "custom") {
-                                  setShowCustomBuyIn((prev) => ({
-                                    ...prev,
-                                    [p.userId._id]: true,
-                                  }));
-                                } else {
-                                  setShowCustomBuyIn((prev) => ({
-                                    ...prev,
-                                    [p.userId._id]: false,
-                                  }));
-                                  setBuyInAmounts((prev) => ({
-                                    ...prev,
-                                    [p.userId._id]: Number(e.target.value),
-                                  }));
-                                }
-                              }}
-                              className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                            >
-                              {chipOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() => handleCancelBuyIn(p.userId._id)}
-                              className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition text-sm font-medium whitespace-nowrap"
-                            >
-                              ביטול
-                            </button>
-                          </div>
+                      {isBuyInOpen[p.userId._id] &&
+                        (() => {
+                          const isSharedBankroll =
+                            game.isSharedBankroll ||
+                            club?.gameMode === "shared_bankroll";
+                          const bankroll = p.userId.bankroll || 0;
+                          const alreadyInGame = p.totalApprovedBuyIn || 0;
+                          const availableToAdd = bankroll - alreadyInGame;
 
-                          {showCustomBuyIn[p.userId._id] && (
-                            <div>
-                              <input
-                                type="number"
-                                min="0"
-                                value={
-                                  buyInAmounts[p.userId._id]
-                                    ? Math.floor(
-                                        buyInAmounts[p.userId._id] / 1000
-                                      )
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  const val = Number(e.target.value) || 0;
-                                  setBuyInAmounts((prev) => ({
-                                    ...prev,
-                                    [p.userId._id]: val * 1000,
-                                  }));
-                                }}
-                                placeholder="לדוגמה: 54"
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
-                              />
-                              {buyInAmounts[p.userId._id] &&
-                                buyInAmounts[p.userId._id] > 0 && (
-                                  <div className="text-xs text-slate-500 mt-1">
-                                    = {formatChips(buyInAmounts[p.userId._id])}{" "}
-                                    (
-                                    {formatShekels(
-                                      chipsToShekels(buyInAmounts[p.userId._id])
-                                    )}
-                                    )
+                          return (
+                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 space-y-3">
+                              <div className="text-sm text-slate-400 text-center mb-1">
+                                בחר סכום כניסה:
+                              </div>
+
+                              {isSharedBankroll && (
+                                <div className="p-2 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                                  <div className="text-xs text-purple-400 text-right">
+                                    יתרה בקופה: {formatChips(bankroll)} | כבר
+                                    במשחק: {formatChips(alreadyInGame)} | זמין
+                                    להוספה:{" "}
+                                    <span className="font-bold">
+                                      {formatChips(availableToAdd)}
+                                    </span>
                                   </div>
-                                )}
-                              <p className="text-xs text-slate-500 mt-1">
-                                הערך יוכפל ב-1,000 אוטומטית (לדוגמה: 54 = 54,000
-                                זיטונים)
-                              </p>
+                                </div>
+                              )}
+
+                              <div className="flex gap-2 items-center">
+                                <button
+                                  onClick={async () => {
+                                    const amount =
+                                      buyInAmounts[p.userId._id] || 0;
+                                    if (amount > 0) {
+                                      // בדיקה במצב קופה משותפת
+                                      if (isSharedBankroll) {
+                                        const totalAfterAdd =
+                                          alreadyInGame + amount;
+                                        if (totalAfterAdd > bankroll) {
+                                          setErrorMessage(
+                                            `אין מספיק זיטונים בקופה. יתרה: ${formatChips(
+                                              bankroll
+                                            )}, כבר במשחק: ${formatChips(
+                                              alreadyInGame
+                                            )}, ניתן להוסיף עד ${formatChips(
+                                              availableToAdd
+                                            )} זיטונים.`
+                                          );
+                                          setTimeout(
+                                            () => setErrorMessage(null),
+                                            5000
+                                          );
+                                          return;
+                                        }
+                                      }
+
+                                      try {
+                                        setLoading(true);
+                                        const mod = await import(
+                                          "@/app/actions"
+                                        );
+                                        await mod.adminAddBuyIn(
+                                          game._id,
+                                          p.userId._id,
+                                          amount
+                                        );
+                                        setIsBuyInOpen((prev) => ({
+                                          ...prev,
+                                          [p.userId._id]: false,
+                                        }));
+                                        setBuyInAmounts((prev) => ({
+                                          ...prev,
+                                          [p.userId._id]: 0,
+                                        }));
+                                        router.refresh();
+                                      } catch (error: any) {
+                                        setErrorMessage(
+                                          error?.message || "שגיאה בהוספת כניסה"
+                                        );
+                                        setTimeout(
+                                          () => setErrorMessage(null),
+                                          5000
+                                        );
+                                      } finally {
+                                        setLoading(false);
+                                      }
+                                    }
+                                  }}
+                                  disabled={
+                                    (buyInAmounts[p.userId._id] || 0) === 0 ||
+                                    (isSharedBankroll &&
+                                      (buyInAmounts[p.userId._id] || 0) >
+                                        availableToAdd)
+                                  }
+                                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium whitespace-nowrap"
+                                >
+                                  אשר כניסה
+                                </button>
+                                <select
+                                  value={
+                                    showCustomBuyIn[p.userId._id]
+                                      ? "custom"
+                                      : buyInAmounts[p.userId._id] || 0
+                                  }
+                                  onChange={(e) => {
+                                    if (e.target.value === "custom") {
+                                      setShowCustomBuyIn((prev) => ({
+                                        ...prev,
+                                        [p.userId._id]: true,
+                                      }));
+                                    } else {
+                                      setShowCustomBuyIn((prev) => ({
+                                        ...prev,
+                                        [p.userId._id]: false,
+                                      }));
+                                      const selectedValue = Number(
+                                        e.target.value
+                                      );
+                                      // בדיקה במצב קופה משותפת
+                                      if (
+                                        isSharedBankroll &&
+                                        selectedValue > availableToAdd
+                                      ) {
+                                        setErrorMessage(
+                                          `לא ניתן להכניס יותר מ-${formatChips(
+                                            availableToAdd
+                                          )} זיטונים (זמין להוספה).`
+                                        );
+                                        setTimeout(
+                                          () => setErrorMessage(null),
+                                          3000
+                                        );
+                                        return;
+                                      }
+                                      setBuyInAmounts((prev) => ({
+                                        ...prev,
+                                        [p.userId._id]: selectedValue,
+                                      }));
+                                    }
+                                  }}
+                                  className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                                >
+                                  {chipOptions
+                                    .filter((option) => {
+                                      // במצב קופה משותפת - הסתרת אפשרויות שעולות על הזמין
+                                      if (
+                                        isSharedBankroll &&
+                                        typeof option.value === "number" &&
+                                        option.value > availableToAdd
+                                      ) {
+                                        return false;
+                                      }
+                                      return true;
+                                    })
+                                    .map((option) => (
+                                      <option
+                                        key={option.value}
+                                        value={option.value}
+                                      >
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                </select>
+                                <button
+                                  onClick={() =>
+                                    handleCancelBuyIn(p.userId._id)
+                                  }
+                                  className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg transition text-sm font-medium whitespace-nowrap"
+                                >
+                                  ביטול
+                                </button>
+                              </div>
+
+                              {showCustomBuyIn[p.userId._id] && (
+                                <div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={
+                                      buyInAmounts[p.userId._id]
+                                        ? Math.floor(
+                                            buyInAmounts[p.userId._id] / 1000
+                                          )
+                                        : ""
+                                    }
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      const chipsValue = val * 1000;
+                                      // בדיקה במצב קופה משותפת
+                                      if (
+                                        isSharedBankroll &&
+                                        chipsValue > availableToAdd
+                                      ) {
+                                        setErrorMessage(
+                                          `לא ניתן להכניס יותר מ-${formatChips(
+                                            availableToAdd
+                                          )} זיטונים (זמין להוספה).`
+                                        );
+                                        setTimeout(
+                                          () => setErrorMessage(null),
+                                          3000
+                                        );
+                                        return;
+                                      }
+                                      setBuyInAmounts((prev) => ({
+                                        ...prev,
+                                        [p.userId._id]: chipsValue,
+                                      }));
+                                    }}
+                                    placeholder="לדוגמה: 54"
+                                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                                  />
+                                  {buyInAmounts[p.userId._id] &&
+                                    buyInAmounts[p.userId._id] > 0 && (
+                                      <>
+                                        <div className="text-xs text-slate-500 mt-1">
+                                          ={" "}
+                                          {formatChips(
+                                            buyInAmounts[p.userId._id]
+                                          )}{" "}
+                                          (
+                                          {formatShekels(
+                                            chipsToShekels(
+                                              buyInAmounts[p.userId._id]
+                                            )
+                                          )}
+                                          )
+                                        </div>
+                                        {isSharedBankroll &&
+                                          buyInAmounts[p.userId._id] >
+                                            availableToAdd && (
+                                            <div className="text-xs text-rose-400 mt-1 p-2 bg-rose-500/10 border border-rose-500/30 rounded">
+                                              ⚠️ הכניסה גדולה מהזמין! זמין:{" "}
+                                              {formatChips(availableToAdd)}
+                                            </div>
+                                          )}
+                                      </>
+                                    )}
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    הערך יוכפל ב-1,000 אוטומטית (לדוגמה: 54 =
+                                    54,000 זיטונים)
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
+                          );
+                        })()}
 
                       {/* יציאה - רק בסיום משחק */}
                       {ending &&

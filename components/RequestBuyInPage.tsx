@@ -9,9 +9,11 @@ import { formatChips, formatShekels, chipsToShekels } from "@/lib/utils";
 export default function RequestBuyInPage({
   game,
   currentUser,
+  club,
 }: {
   game: any;
   currentUser: any;
+  club?: any;
 }) {
   const [amount, setAmount] = useState(0);
   const [customAmount, setCustomAmount] = useState("");
@@ -100,8 +102,41 @@ export default function RequestBuyInPage({
     ? (Number(customAmount) || 0) * 1000
     : amount;
 
+  // חישוב יתרה זמינה (יתרה פחות כניסות מאושרות)
+  const availableBankroll =
+    club?.gameMode === "shared_bankroll" && currentUser
+      ? (currentUser.bankroll || 0) - (player?.totalApprovedBuyIn || 0)
+      : Infinity;
+
   return (
     <div className="glass-card p-6 rounded-2xl space-y-6">
+      {/* יתרת קופה - רק במוד קופה משותפת */}
+      {club?.gameMode === "shared_bankroll" && currentUser && (
+        <div className="bg-purple-900/20 p-4 rounded-xl border border-purple-500/30">
+          <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">
+            יתרה זמינה
+          </div>
+          <div className="text-2xl font-bold text-purple-400 font-mono">
+            {formatChips(availableBankroll)}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            יתרה כוללת: {formatChips(currentUser.bankroll || 0)} | כניסות
+            מאושרות: {formatChips(player?.totalApprovedBuyIn || 0)}
+          </div>
+        </div>
+      )}
+
+      {/* אזהרה אם הכניסה גדולה מהיתרה */}
+      {club?.gameMode === "shared_bankroll" &&
+        selectedAmount > availableBankroll && (
+          <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg">
+            <p className="text-xs text-rose-400 text-right">
+              ⚠️ הכניסה המבוקשת גדולה מהיתרה הזמינה! יתרה זמינה:{" "}
+              {formatChips(availableBankroll)}, מבוקש:{" "}
+              {formatChips(selectedAmount)}
+            </p>
+          </div>
+        )}
       {/* Amount Selection */}
       <div>
         <label className="block text-sm font-medium text-slate-400 mb-3">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Club from "@/models/Club";
+import ClubBankroll from "@/models/ClubBankroll";
 import User from "@/models/User";
 import { cookies } from "next/headers";
 import mongoose from "mongoose";
@@ -45,10 +46,35 @@ export async function POST(request: NextRequest) {
     });
 
     // Create the club with club password
-    const club = await Club.create({
+    const clubData = {
       name: clubName.trim(),
       managerId: managerUser._id,
       clubPassword: clubPassword,
+      gameMode: "shared_bankroll" as const, // כל מועדון חדש במצב קופה משותפת
+    };
+
+    console.log(
+      "Creating club with manager, data:",
+      JSON.stringify(clubData, null, 2)
+    );
+    const club = await Club.create(clubData);
+
+    // וידוא שהשדה נשמר
+    const savedClub = await Club.findById(club._id);
+    console.log("Club created, gameMode:", savedClub?.gameMode);
+
+    if (!savedClub?.gameMode) {
+      console.error("ERROR: gameMode not saved! Updating...");
+      await Club.updateOne({ _id: club._id }, { gameMode: "shared_bankroll" });
+      const updatedClub = await Club.findById(club._id);
+      console.log("After update, gameMode:", updatedClub?.gameMode);
+    }
+
+    // יצירת קופה משותפת למועדון החדש
+    await ClubBankroll.create({
+      clubId: club._id,
+      players: [],
+      totalBalance: 0,
     });
 
     // Set manager's clubId

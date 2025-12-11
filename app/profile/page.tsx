@@ -16,8 +16,12 @@ export default async function ProfilePage() {
 
   // If no user logged in, ProfileContent will show login form
   let userClubs = [];
-  if (currentUser) {
-    userClubs = await getUserClubs(currentUser._id);
+  let club = null;
+  if (clubSession) {
+    club = await getClub(clubSession);
+    if (currentUser) {
+      userClubs = await getUserClubs(currentUser._id);
+    }
   }
 
   return (
@@ -25,6 +29,7 @@ export default async function ProfilePage() {
       currentUser={currentUser}
       userClubs={userClubs}
       hasClubSession={!!clubSession}
+      club={club}
     />
   );
 }

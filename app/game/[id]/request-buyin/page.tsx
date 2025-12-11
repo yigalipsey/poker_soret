@@ -1,4 +1,9 @@
-import { getGameById, getPlayerSession, getClubSession } from "@/app/actions";
+import {
+  getGameById,
+  getPlayerSession,
+  getClubSession,
+  getClub,
+} from "@/app/actions";
 import RequestBuyInPage from "@/components/RequestBuyInPage";
 import ClubLoginScreen from "@/components/ClubLoginScreen";
 import Link from "next/link";
@@ -23,9 +28,10 @@ export default async function RequestBuyInRoute({
     );
   }
 
-  const [game, currentUser] = await Promise.all([
+  const [game, currentUser, club] = await Promise.all([
     getGameById(id),
     getPlayerSession(),
+    getClub(clubId),
   ]);
 
   if (!game) {
@@ -100,7 +106,7 @@ export default async function RequestBuyInRoute({
         </div>
       </header>
 
-      <RequestBuyInPage game={game} currentUser={currentUser} />
+      <RequestBuyInPage game={game} currentUser={currentUser} club={club} />
     </div>
   );
 }
