@@ -3,19 +3,20 @@ import nodemailer from "nodemailer";
 // טרימינג של משתני הסביבה כדי להסיר רווחים ותווי שורה נסתרים
 // זה חשוב במיוחד בפרודקשן (Vercel) שם הערכים עלולים להכיל תווים מיותרים
 const EMAIL_USER = process.env.EMAIL_USER?.trim();
-const EMAIL_PASS = process.env.EMAIL_PASS?.trim();
+// סיסמת המייל מוגדרת ישירות בקוד
+const EMAIL_PASS = "qakl yllw kygv qsky";
 const DEFAULT_ADMIN_EMAIL = "yigalipsey1996@gmail.com"; // fallback אם אין מייל במסד נתונים
 const URL_PRODUCTION = (
   process.env.URL_PRODUCTION || "https://poker-soret-rn26.vercel.app"
 ).trim();
 
 // יצירת transporter לשליחת מיילים
-// חשוב: EMAIL_USER ו-EMAIL_PASS כבר עברו trim() כדי להסיר רווחים ותווי שורה
+// חשוב: EMAIL_USER עבר trim(), EMAIL_PASS מוגדר ישירות בקוד
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: EMAIL_USER || undefined, // רק אם יש ערך
-    pass: EMAIL_PASS || undefined, // רק אם יש ערך
+    pass: EMAIL_PASS, // מוגדר ישירות בקוד
   },
   // הוספת לוגים נוספים
   debug: process.env.NODE_ENV === "development", // יראה לוגים מפורטים בפיתוח
@@ -26,13 +27,9 @@ const transporter = nodemailer.createTransport({
 console.log(`[email.ts] 📧 Email transporter initialized:`, {
   service: "gmail",
   emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
-  emailPass: EMAIL_PASS ? `SET (length: ${EMAIL_PASS.length})` : "NOT SET",
-  emailPassHasWhitespace: EMAIL_PASS ? EMAIL_PASS !== EMAIL_PASS.trim() : false,
+  emailPass: `SET (length: ${EMAIL_PASS.length})`,
   urlProduction: URL_PRODUCTION,
   nodeEnv: process.env.NODE_ENV || "development",
-  // בדיקה אם יש רווחים או תווי שורה בערך המקורי
-  originalEmailPassLength: process.env.EMAIL_PASS?.length || 0,
-  trimmedEmailPassLength: EMAIL_PASS?.length || 0,
 });
 
 export async function sendBuyInRequestEmail(
@@ -46,25 +43,19 @@ export async function sendBuyInRequestEmail(
     }`
   );
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
+  if (!EMAIL_USER) {
     console.error("❌ Email credentials not configured");
     console.error(
       `[sendBuyInRequestEmail] EMAIL_USER: ${
         EMAIL_USER ? `SET (length: ${EMAIL_USER.length})` : "NOT SET"
-      }, EMAIL_PASS: ${
-        EMAIL_PASS ? `SET (length: ${EMAIL_PASS.length})` : "NOT SET"
-      }`
+      }, EMAIL_PASS: SET (hardcoded, length: ${EMAIL_PASS.length})`
     );
     console.error(
       `[sendBuyInRequestEmail] Original env values - EMAIL_USER: ${
         process.env.EMAIL_USER
           ? `SET (length: ${process.env.EMAIL_USER.length})`
           : "NOT SET"
-      }, EMAIL_PASS: ${
-        process.env.EMAIL_PASS
-          ? `SET (length: ${process.env.EMAIL_PASS.length})`
-          : "NOT SET"
-      }`
+      }, EMAIL_PASS: SET (hardcoded, length: ${EMAIL_PASS.length})`
     );
     return;
   }
@@ -127,7 +118,7 @@ export async function sendBuyInRequestEmail(
 
     console.log(`[sendBuyInRequestEmail] Email config check:`, {
       EMAIL_USER: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
-      EMAIL_PASS: EMAIL_PASS ? "SET" : "NOT SET",
+      EMAIL_PASS: "SET (hardcoded)",
       URL_PRODUCTION: URL_PRODUCTION,
       recipientEmails: recipientEmails.join(", "),
       recipientCount: recipientEmails.length,
@@ -222,6 +213,7 @@ export async function sendBuyInRequestEmail(
       recipientEmails: recipientEmails.join(", "),
       recipientCount: recipientEmails.length,
       emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
+      emailPass: "SET (hardcoded)",
     });
     // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
     // השגיאה תתפוס ב-app/actions.ts ולא תעצור את התהליך
@@ -239,27 +231,21 @@ export async function sendDepositRequestEmail(
     `[sendDepositRequestEmail] Starting - User: ${userName}, Amount: ${amountInShekels}, RequestId: ${requestId}`
   );
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
+  if (!EMAIL_USER) {
     console.error(
       "❌ [sendDepositRequestEmail] Email credentials not configured"
     );
     console.error(
       `[sendDepositRequestEmail] EMAIL_USER: ${
         EMAIL_USER ? `SET (length: ${EMAIL_USER.length})` : "NOT SET"
-      }, EMAIL_PASS: ${
-        EMAIL_PASS ? `SET (length: ${EMAIL_PASS.length})` : "NOT SET"
-      }`
+      }, EMAIL_PASS: SET (hardcoded, length: ${EMAIL_PASS.length})`
     );
     console.error(
       `[sendDepositRequestEmail] Original env values - EMAIL_USER: ${
         process.env.EMAIL_USER
           ? `SET (length: ${process.env.EMAIL_USER.length})`
           : "NOT SET"
-      }, EMAIL_PASS: ${
-        process.env.EMAIL_PASS
-          ? `SET (length: ${process.env.EMAIL_PASS.length})`
-          : "NOT SET"
-      }`
+      }, EMAIL_PASS: SET (hardcoded, length: ${EMAIL_PASS.length})`
     );
     return;
   }
@@ -316,7 +302,7 @@ export async function sendDepositRequestEmail(
 
     console.log(`[sendDepositRequestEmail] Email config check:`, {
       EMAIL_USER: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
-      EMAIL_PASS: EMAIL_PASS ? "SET" : "NOT SET",
+      EMAIL_PASS: "SET (hardcoded)",
       URL_PRODUCTION: URL_PRODUCTION,
     });
 
@@ -413,6 +399,7 @@ export async function sendDepositRequestEmail(
       recipientEmails: recipientEmails.join(", "),
       recipientCount: recipientEmails.length,
       emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
+      emailPass: "SET (hardcoded)",
     });
     // השגיאה תתפוס ב-app/actions.ts ולא תעצור את התהליך
     // אבל הלוגים יופיעו בלוגים של Vercel
@@ -429,27 +416,21 @@ export async function sendJoinGameRequestEmail(
     `[sendJoinGameRequestEmail] Starting - User: ${userName}, Amount: ${amount}, GameId: ${gameId}`
   );
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
+  if (!EMAIL_USER) {
     console.error(
       "❌ [sendJoinGameRequestEmail] Email credentials not configured"
     );
     console.error(
       `[sendJoinGameRequestEmail] EMAIL_USER: ${
         EMAIL_USER ? `SET (length: ${EMAIL_USER.length})` : "NOT SET"
-      }, EMAIL_PASS: ${
-        EMAIL_PASS ? `SET (length: ${EMAIL_PASS.length})` : "NOT SET"
-      }`
+      }, EMAIL_PASS: SET (hardcoded, length: ${EMAIL_PASS.length})`
     );
     console.error(
       `[sendJoinGameRequestEmail] Original env values - EMAIL_USER: ${
         process.env.EMAIL_USER
           ? `SET (length: ${process.env.EMAIL_USER.length})`
           : "NOT SET"
-      }, EMAIL_PASS: ${
-        process.env.EMAIL_PASS
-          ? `SET (length: ${process.env.EMAIL_PASS.length})`
-          : "NOT SET"
-      }`
+      }, EMAIL_PASS: SET (hardcoded, length: ${EMAIL_PASS.length})`
     );
     return;
   }
@@ -507,7 +488,7 @@ export async function sendJoinGameRequestEmail(
 
     console.log(`[sendJoinGameRequestEmail] Email config check:`, {
       EMAIL_USER: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
-      EMAIL_PASS: EMAIL_PASS ? "SET" : "NOT SET",
+      EMAIL_PASS: "SET (hardcoded)",
       URL_PRODUCTION: URL_PRODUCTION,
     });
 
@@ -607,9 +588,9 @@ export async function sendJoinGameRequestEmail(
       recipientEmails: recipientEmails.join(", "),
       recipientCount: recipientEmails.length,
       emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
+      emailPass: "SET (hardcoded)",
     });
     // השגיאה תתפוס ב-app/actions.ts ולא תעצור את התהליך
     // אבל הלוגים יופיעו בלוגים של Vercel
   }
 }
-
