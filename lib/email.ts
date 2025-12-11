@@ -13,6 +13,18 @@ const transporter = nodemailer.createTransport({
     user: EMAIL_USER,
     pass: EMAIL_PASS,
   },
+  // הוספת לוגים נוספים
+  debug: process.env.NODE_ENV === "development", // יראה לוגים מפורטים בפיתוח
+  logger: true, // יראה לוגים של nodemailer
+});
+
+// לוג בעת יצירת transporter
+console.log(`[email.ts] 📧 Email transporter initialized:`, {
+  service: "gmail",
+  emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
+  emailPass: EMAIL_PASS ? "SET" : "NOT SET",
+  urlProduction: URL_PRODUCTION,
+  nodeEnv: process.env.NODE_ENV || "development",
 });
 
 export async function sendBuyInRequestEmail(
@@ -62,15 +74,22 @@ export async function sendBuyInRequestEmail(
 
   try {
     // בדיקת תקינות ה-transporter
+    console.log(`[sendBuyInRequestEmail] Verifying transporter connection...`);
     try {
-      await transporter.verify();
-      console.log(`[sendBuyInRequestEmail] Transporter verified successfully`);
+      const verifyResult = await transporter.verify();
+      console.log(
+        `[sendBuyInRequestEmail] Transporter verified successfully:`,
+        verifyResult
+      );
     } catch (verifyError: any) {
       console.error(
-        `[sendBuyInRequestEmail] Transporter verification failed:`,
+        `[sendBuyInRequestEmail] ⚠️ Transporter verification failed:`,
         {
           message: verifyError?.message,
           code: verifyError?.code,
+          command: verifyError?.command,
+          response: verifyError?.response,
+          responseCode: verifyError?.responseCode,
         }
       );
       // נמשיך לנסות לשלוח למרות שגיאת verify
@@ -124,37 +143,55 @@ export async function sendBuyInRequestEmail(
       `,
     };
 
-    console.log(`[sendBuyInRequestEmail] Attempting to send email:`, {
+    console.log(`[sendBuyInRequestEmail] 📧 Attempting to send email:`, {
       from: EMAIL_USER,
       to: recipientEmail,
       subject: `בקשה חדשה לכניסה למשחק - ${userName}`,
       timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
     });
 
-    console.log(`[sendBuyInRequestEmail] Calling transporter.sendMail...`);
+    console.log(`[sendBuyInRequestEmail] 📤 Calling transporter.sendMail...`);
+    const startTime = Date.now();
     const result = await transporter.sendMail(mailOptions);
+    const duration = Date.now() - startTime;
+
     console.log(
-      `[sendBuyInRequestEmail] Email sent successfully to ${recipientEmail} for buy-in request from ${userName}`
+      `[sendBuyInRequestEmail] ✅ Email sent successfully to ${recipientEmail} for buy-in request from ${userName} (took ${duration}ms)`
     );
-    console.log(`[sendBuyInRequestEmail] Email result:`, {
+    console.log(`[sendBuyInRequestEmail] 📊 Email result:`, {
       messageId: result.messageId,
       accepted: result.accepted,
       rejected: result.rejected,
       response: result.response,
       pending: result.pending,
       timestamp: new Date().toISOString(),
+      duration: `${duration}ms`,
     });
+
+    if (result.rejected && result.rejected.length > 0) {
+      console.error(
+        `[sendBuyInRequestEmail] ❌ Email was rejected:`,
+        result.rejected
+      );
+    }
   } catch (error: any) {
-    console.error("[sendBuyInRequestEmail] Error sending email:", error);
-    console.error(`[sendBuyInRequestEmail] Error details:`, {
+    console.error("[sendBuyInRequestEmail] ❌ ERROR sending email:", error);
+    console.error(`[sendBuyInRequestEmail] 🔍 Error details:`, {
       message: error?.message,
       code: error?.code,
+      name: error?.name,
       response: error?.response,
       responseCode: error?.responseCode,
+      command: error?.command,
       stack: error?.stack,
       timestamp: new Date().toISOString(),
+      recipientEmail: recipientEmail,
+      emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
     });
     // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
+    // השגיאה תתפוס ב-app/actions.ts ולא תעצור את התהליך
+    // אבל הלוגים יופיעו בלוגים של Vercel
   }
 }
 
@@ -265,38 +302,56 @@ export async function sendDepositRequestEmail(
       `,
     };
 
-    console.log(`[sendDepositRequestEmail] Attempting to send email:`, {
+    console.log(`[sendDepositRequestEmail] 📧 Attempting to send email:`, {
       from: EMAIL_USER,
       to: recipientEmail,
       subject: `בקשה חדשה לטעינת כסף לקופה - ${userName}`,
       requestId: requestId,
       timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
     });
 
-    console.log(`[sendDepositRequestEmail] Calling transporter.sendMail...`);
+    console.log(`[sendDepositRequestEmail] 📤 Calling transporter.sendMail...`);
+    const startTime = Date.now();
     const result = await transporter.sendMail(mailOptions);
+    const duration = Date.now() - startTime;
     console.log(
-      `[sendDepositRequestEmail] Email sent successfully to ${recipientEmail} for deposit request from ${userName}`
+      `[sendDepositRequestEmail] ✅ Email sent successfully to ${recipientEmail} for deposit request from ${userName} (took ${duration}ms)`
     );
-    console.log(`[sendDepositRequestEmail] Email result:`, {
+    console.log(`[sendDepositRequestEmail] 📊 Email result:`, {
       messageId: result.messageId,
       accepted: result.accepted,
       rejected: result.rejected,
       response: result.response,
       pending: result.pending,
+      duration: `${duration}ms`,
     });
+
+    if (result.rejected && result.rejected.length > 0) {
+      console.error(
+        `[sendDepositRequestEmail] ❌ Email was rejected:`,
+        result.rejected
+      );
+    }
   } catch (error: any) {
     console.error(
-      "[sendDepositRequestEmail] Error sending deposit request email:",
+      "[sendDepositRequestEmail] ❌ ERROR sending deposit request email:",
       error
     );
-    console.error(`[sendDepositRequestEmail] Error details:`, {
+    console.error(`[sendDepositRequestEmail] 🔍 Error details:`, {
       message: error?.message,
       code: error?.code,
+      name: error?.name,
       response: error?.response,
       responseCode: error?.responseCode,
+      command: error?.command,
       stack: error?.stack,
+      timestamp: new Date().toISOString(),
+      recipientEmail: recipientEmail,
+      emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
     });
+    // השגיאה תתפוס ב-app/actions.ts ולא תעצור את התהליך
+    // אבל הלוגים יופיעו בלוגים של Vercel
   }
 }
 
@@ -410,37 +465,58 @@ export async function sendJoinGameRequestEmail(
       `,
     };
 
-    console.log(`[sendJoinGameRequestEmail] Attempting to send email:`, {
+    console.log(`[sendJoinGameRequestEmail] 📧 Attempting to send email:`, {
       from: EMAIL_USER,
       to: recipientEmail,
       subject: `בקשה חדשה להצטרפות למשחק - ${userName}`,
       gameId: gameId,
       timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
     });
 
-    console.log(`[sendJoinGameRequestEmail] Calling transporter.sendMail...`);
-    const result = await transporter.sendMail(mailOptions);
     console.log(
-      `[sendJoinGameRequestEmail] Email sent successfully to ${recipientEmail} for join game request from ${userName}`
+      `[sendJoinGameRequestEmail] 📤 Calling transporter.sendMail...`
     );
-    console.log(`[sendJoinGameRequestEmail] Email result:`, {
+    const startTime = Date.now();
+    const result = await transporter.sendMail(mailOptions);
+    const duration = Date.now() - startTime;
+
+    console.log(
+      `[sendJoinGameRequestEmail] ✅ Email sent successfully to ${recipientEmail} for join game request from ${userName} (took ${duration}ms)`
+    );
+    console.log(`[sendJoinGameRequestEmail] 📊 Email result:`, {
       messageId: result.messageId,
       accepted: result.accepted,
       rejected: result.rejected,
       response: result.response,
       pending: result.pending,
+      duration: `${duration}ms`,
     });
+
+    if (result.rejected && result.rejected.length > 0) {
+      console.error(
+        `[sendJoinGameRequestEmail] ❌ Email was rejected:`,
+        result.rejected
+      );
+    }
   } catch (error: any) {
     console.error(
-      "[sendJoinGameRequestEmail] Error sending join game request email:",
+      "[sendJoinGameRequestEmail] ❌ ERROR sending join game request email:",
       error
     );
-    console.error(`[sendJoinGameRequestEmail] Error details:`, {
+    console.error(`[sendJoinGameRequestEmail] 🔍 Error details:`, {
       message: error?.message,
       code: error?.code,
+      name: error?.name,
       response: error?.response,
       responseCode: error?.responseCode,
+      command: error?.command,
       stack: error?.stack,
+      timestamp: new Date().toISOString(),
+      recipientEmail: recipientEmail,
+      emailUser: EMAIL_USER ? `${EMAIL_USER.substring(0, 3)}***` : "NOT SET",
     });
+    // השגיאה תתפוס ב-app/actions.ts ולא תעצור את התהליך
+    // אבל הלוגים יופיעו בלוגים של Vercel
   }
 }
