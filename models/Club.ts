@@ -28,7 +28,7 @@ const ClubSchema: Schema = new Schema(
   {
     // וידוא שה-defaults נשמרים גם אם לא מעבירים אותם במפורש
     setDefaultsOnInsert: true,
-  }
+  } as mongoose.SchemaOptions
 );
 
 const Club: Model<IClub> =

@@ -1424,7 +1424,11 @@ async function getOrCreateClubBankroll(clubId: string) {
     return newBankroll;
   }
 
-  return await ClubBankroll.findById(clubBankroll._id);
+  const foundBankroll = await ClubBankroll.findById(clubBankroll._id);
+  if (!foundBankroll) {
+    throw new Error("קופה משותפת לא נמצאה");
+  }
+  return foundBankroll;
 }
 
 /**
@@ -1494,6 +1498,9 @@ export async function depositToBankroll(
 
   // מוד קופה משותפת - עבודה עם ClubBankroll
   const clubBankroll = await getOrCreateClubBankroll(user.clubId.toString());
+  if (!clubBankroll) {
+    throw new Error("קופה משותפת לא נמצאה");
+  }
   const chipsPerShekel = await getChipsPerShekel(user.clubId.toString());
   const chipsAmount = amountInShekels * chipsPerShekel;
 
