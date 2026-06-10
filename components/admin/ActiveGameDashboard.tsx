@@ -381,9 +381,7 @@ export default function ActiveGameDashboard({
           <div className="flex items-start gap-3">
             <AlertCircle className="w-6 h-6 text-rose-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-rose-400 font-bold text-lg whitespace-pre-line">
-                {errorMessage}
-              </p>
+              <p className="text-rose-400 font-bold text-lg">{errorMessage}</p>
             </div>
             <button
               onClick={() => setErrorMessage(null)}

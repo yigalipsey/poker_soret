@@ -34,10 +34,17 @@ import RequestJoinGame from "@/components/RequestJoinGame";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  console.log("🏠 [Home Page] Starting to load home page");
+
   const clubId = await getClubSession();
+  console.log(
+    "🏠 [Home Page] Club session:",
+    clubId ? `Found (${clubId})` : "Not found"
+  );
 
   // If no club session, show login/creation screen
   if (!clubId) {
+    console.log("🏠 [Home Page] No club session - showing login screen");
     return (
       <div className="min-h-screen flex items-start justify-center pt-8 px-4">
         <ClubLoginScreen />
@@ -47,12 +54,24 @@ export default async function Home() {
 
   const club = await getClub(clubId);
   const currentUser = await getPlayerSession();
+  console.log("🏠 [Home Page] Club loaded:", club?.name);
+  console.log(
+    "🏠 [Home Page] Current user:",
+    currentUser ? currentUser.name : "Not logged in"
+  );
 
   const [users, activeGame, history] = await Promise.all([
     getUsers(clubId),
     getActiveGame(clubId),
     getGameHistory(clubId),
   ]);
+
+  console.log("🏠 [Home Page] Data loaded:", {
+    usersCount: users.length,
+    hasActiveGame: !!activeGame,
+    activeGameId: activeGame?._id,
+    historyCount: history.length,
+  });
 
   // בדיקה אם השחקן במשחק הפעיל
   let isPlayerInGame = false;
@@ -66,12 +85,21 @@ export default async function Home() {
       return playerId === userId;
     });
     isPlayerInGame = !!player;
+    console.log("🏠 [Home Page] Player in active game:", {
+      userId,
+      isPlayerInGame,
+      playersInGame: activeGame.players.length,
+    });
 
     // אם השחקן לא במשחק, בדוק אם יש בקשה ממתינה
     if (!isPlayerInGame) {
       userPendingRequest = await getUserPendingJoinRequest(
         activeGame._id,
         currentUser._id
+      );
+      console.log(
+        "🏠 [Home Page] User pending request:",
+        userPendingRequest ? "Found" : "None"
       );
     }
   }
@@ -93,9 +121,23 @@ export default async function Home() {
   }, 0);
   const totalMoneyPlayed = chipsToShekels(totalMoneyPlayedChips); // המרה לשקלים
 
+  console.log("🏠 [Home Page] Statistics calculated:", {
+    totalGames,
+    totalMoneyPlayedChips,
+    totalMoneyPlayed,
+    lastGameDate: lastGame
+      ? new Date(lastGame.date).toLocaleDateString("he-IL")
+      : "None",
+  });
+
   // חישוב קופה משותפת (רק במוד קופה משותפת)
   const isSharedBankrollMode = club?.gameMode === "shared_bankroll";
   let totalSharedBankroll = 0;
+  console.log(
+    "🏠 [Home Page] Game mode:",
+    isSharedBankrollMode ? "Shared Bankroll" : "Regular"
+  );
+
   if (isSharedBankrollMode) {
     // טעינת הקופה המשותפת מהמסד נתונים
     const { default: ClubBankroll } = await import("@/models/ClubBankroll");
@@ -103,6 +145,10 @@ export default async function Home() {
     await connectDB();
     const clubBankroll = await ClubBankroll.findOne({ clubId }).lean();
     totalSharedBankroll = clubBankroll?.totalBalance || 0;
+    console.log("🏠 [Home Page] Shared bankroll loaded:", {
+      totalSharedBankroll,
+      inShekels: chipsToShekels(totalSharedBankroll),
+    });
   }
 
   // Sort users by balance (descending) to highlight top players
@@ -113,6 +159,16 @@ export default async function Home() {
     }
     return b.globalBalance - a.globalBalance;
   });
+
+  console.log(
+    "🏠 [Home Page] Users sorted. Top 3:",
+    sortedUsers.slice(0, 3).map((u) => ({
+      name: u.name,
+      balance: isSharedBankrollMode ? u.bankroll : u.globalBalance,
+    }))
+  );
+
+  console.log("🏠 [Home Page] ✅ Page data ready - rendering UI");
 
   return (
     <div className="min-h-screen pb-24 px-4 pt-4 max-w-md mx-auto relative overflow-hidden">

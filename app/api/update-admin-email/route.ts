@@ -7,43 +7,21 @@ import { revalidatePath } from "next/cache";
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
-    const { adminEmail: rawAdminEmail } = await request.json();
+    const { adminEmail } = await request.json();
 
-    // בדיקת תקינות כתובת המייל - תמיכה במספר מיילים מופרדים בפסיקים
+    // בדיקת תקינות כתובת המייל
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    let adminEmail: string | null = null;
-
-    if (rawAdminEmail) {
-      // פיצול לפי פסיקים או שורות חדשות
-      const emails = rawAdminEmail
-        .split(/[,;\n]/)
-        .map((e: string) => e.trim())
-        .filter((e: string) => e.length > 0);
-
-      // בדיקה שכל מייל תקין
-      for (const email of emails) {
-        if (typeof email === "string" && !emailRegex.test(email)) {
-          return NextResponse.json(
-            { error: `כתובת מייל לא תקינה: ${email}` },
-            { status: 400 }
-          );
-        }
-      }
-
-      // שמירה כמערך מופרד בפסיקים
-      adminEmail = emails.join(",");
+    if (adminEmail && !emailRegex.test(adminEmail)) {
+      return NextResponse.json(
+        { error: "כתובת מייל לא תקינה" },
+        { status: 400 }
+      );
     }
 
     const clubId = await getClubSession();
     if (!clubId) {
       return NextResponse.json({ error: "אין מועדון פעיל" }, { status: 400 });
     }
-
-    console.log(
-      `[update-admin-email] Club ID: ${clubId}, Admin email to save: ${
-        adminEmail || "null/empty"
-      }`
-    );
 
     const club = await Club.findByIdAndUpdate(
       clubId,
@@ -54,12 +32,6 @@ export async function POST(request: NextRequest) {
     if (!club) {
       return NextResponse.json({ error: "מועדון לא נמצא" }, { status: 404 });
     }
-
-    console.log(
-      `[update-admin-email] Saved admin email: ${
-        club.adminEmail || "undefined/null"
-      }`
-    );
 
     revalidatePath("/admin");
     revalidatePath("/");

@@ -8,11 +8,9 @@ import { Loader2, Gamepad2, Wallet } from "lucide-react";
 export default function GameModeSettings({
   clubId,
   currentMode,
-  hasActiveGame,
 }: {
   clubId: string;
   currentMode?: "free" | "shared_bankroll";
-  hasActiveGame?: boolean;
 }) {
   const [mode, setMode] = useState<"free" | "shared_bankroll">(
     currentMode || "free"
@@ -28,39 +26,18 @@ export default function GameModeSettings({
   async function handleModeChange(newMode: "free" | "shared_bankroll") {
     if (newMode === mode) return;
 
-    // בדיקה אם יש משחק פעיל
-    if (hasActiveGame) {
-      alert(
-        "לא ניתן לשנות מוד משחק כאשר יש משחק פעיל. נא לסיים את המשחק הפעיל תחילה."
-      );
-      return;
-    }
-
     try {
       setLoading(true);
-      const result = await updateClubGameMode(clubId, newMode);
+      await updateClubGameMode(clubId, newMode);
+      setMode(newMode);
 
-      if (result?.success) {
-        setMode(newMode);
+      // המתן קצת לפני רענון כדי לוודא שהשמירה הסתיימה
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
-        // המתן קצת לפני רענון כדי לוודא שהשמירה הסתיימה
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        // רענון הדף כדי לטעון את הנתונים המעודכנים
-        router.refresh();
-
-        // רענון נוסף אחרי זמן קצר כדי לוודא שהנתונים מעודכנים
-        setTimeout(() => {
-          router.refresh();
-        }, 500);
-      } else {
-        throw new Error("העדכון נכשל");
-      }
-    } catch (error: any) {
-      console.error("Error updating game mode:", error);
-      alert(error?.message || "שגיאה בעדכון מוד המשחק");
-      // רענון גם במקרה של שגיאה כדי לטעון את הערך הנכון
+      // רענון הדף כדי לטעון את הנתונים המעודכנים
       router.refresh();
+    } catch (error: any) {
+      alert(error?.message || "שגיאה בעדכון מוד המשחק");
     } finally {
       setLoading(false);
     }
@@ -95,13 +72,6 @@ export default function GameModeSettings({
       </div>
 
       <div className="space-y-3">
-        {hasActiveGame && (
-          <div className="bg-rose-500/10 border border-rose-500/50 rounded-lg p-3 mb-4">
-            <p className="text-sm text-rose-400 text-right">
-              ⚠️ יש משחק פעיל - לא ניתן לשנות מוד משחק עד לסיום המשחק
-            </p>
-          </div>
-        )}
         <div className="text-sm text-slate-400 mb-4">
           בחר את מוד המשחק למועדון:
         </div>
@@ -109,7 +79,7 @@ export default function GameModeSettings({
         {/* Free Mode */}
         <button
           onClick={() => handleModeChange("free")}
-          disabled={loading || hasActiveGame}
+          disabled={loading}
           className={`
             w-full p-4 rounded-xl border-2 transition-all text-right
             ${
@@ -143,7 +113,7 @@ export default function GameModeSettings({
         {/* Shared Bankroll Mode */}
         <button
           onClick={() => handleModeChange("shared_bankroll")}
-          disabled={loading || hasActiveGame}
+          disabled={loading}
           className={`
             w-full p-4 rounded-xl border-2 transition-all text-right
             ${

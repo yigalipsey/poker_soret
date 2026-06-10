@@ -10,7 +10,6 @@ import ChipsPerShekelSettings from "@/components/admin/ChipsPerShekelSettings";
 import ClubNameEditor from "@/components/admin/ClubNameEditor";
 import GameModeSettings from "@/components/admin/GameModeSettings";
 import PlayerBankrollManager from "@/components/admin/PlayerBankrollManager";
-import AdminEmailSettings from "@/components/admin/AdminEmailSettings";
 
 export default async function ClubManagement({ clubId }: { clubId: string }) {
   const [club, users, activeGame, gameHistory] = await Promise.all([
@@ -76,7 +75,6 @@ export default async function ClubManagement({ clubId }: { clubId: string }) {
       <GameModeSettings
         clubId={clubId}
         currentMode={club?.gameMode || "free"}
-        hasActiveGame={!!activeGame}
       />
 
       {/* Player Bankroll Manager - רק במוד קופה משותפת */}
@@ -93,9 +91,6 @@ export default async function ClubManagement({ clubId }: { clubId: string }) {
         clubId={clubId}
         currentValue={club?.chipsPerShekel || 100}
       />
-
-      {/* Admin Email Settings */}
-      <AdminEmailSettings clubId={clubId} currentEmail={club?.adminEmail} />
     </div>
   );
 }

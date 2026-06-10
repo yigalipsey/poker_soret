@@ -11,13 +11,7 @@ import mongoose from "mongoose";
 import { cookies } from "next/headers";
 // bcrypt removed - using plain text passwords for simplicity
 import { chipsToShekels } from "@/lib/utils";
-import {
-  sendBuyInRequestEmail,
-  sendDepositRequestEmail,
-  sendJoinGameRequestEmail,
-} from "@/lib/email";
-import DepositRequest from "@/models/DepositRequest";
-import JoinGameRequest from "@/models/JoinGameRequest";
+import { sendBuyInRequestEmail } from "@/lib/email";
 
 /**
  * המרת אובייקט Mongoose ל-plain object עבור Client Components
@@ -102,25 +96,24 @@ export async function createUser(
   clubId?: string,
   password?: string
 ) {
-  try {
-    await connectDB();
+  await connectDB();
 
-    // אם זה לא מנהל, חייב להיות clubId
-    if (!isAdmin && !clubId) {
-      throw new Error("נא לבחור קלאב לפני יצירת שחקן");
+  // אם זה לא מנהל, חייב להיות clubId
+  if (!isAdmin && !clubId) {
+    throw new Error("נא לבחור קלאב לפני יצירת שחקן");
+  }
+
+  // בדוק אם כבר קיים משתמש עם אותו שם באותו קלאב
+  if (clubId) {
+    const existingUser = await User.findOne({
+      name: name.trim(),
+      clubId: clubId,
+    });
+
+    if (existingUser) {
+      throw new Error(`שחקן עם השם "${name.trim()}" כבר קיים בקלאב זה`);
     }
-
-    // בדוק אם כבר קיים משתמש עם אותו שם באותו קלאב
-    if (clubId) {
-      const existingUser = await User.findOne({
-        name: name.trim(),
-        clubId: clubId,
-      });
-
-      if (existingUser) {
-        throw new Error(`שחקן עם השם "${name.trim()}" כבר קיים בקלאב זה`);
-      }
-    }
+  }
 
     const userData: any = {
       name: name.trim(),
@@ -128,44 +121,15 @@ export async function createUser(
       password: password || "1234",
     };
 
-    // תמיד להגדיר clubId אם זה לא מנהל
-    if (clubId) {
-      userData.clubId = clubId;
-    }
-
-    console.log(`[createUser] Creating user with data:`, {
-      name: userData.name,
-      isAdmin: userData.isAdmin,
-      clubId: userData.clubId,
-      hasPassword: !!userData.password,
-    });
-
-    const userResult = await User.create(userData);
-    // User.create can return an array or a single document, but we're passing a single object
-    const user = Array.isArray(userResult)
-      ? userResult[0]
-      : (userResult as any);
-
-    console.log(`[createUser] User created successfully:`, {
-      userId: user._id.toString(),
-      name: user.name,
-    });
-
-    revalidatePath("/");
-    revalidatePath("/admin");
-    revalidatePath("/admin/users");
-
-    // Return serializable object using toPlainObject
-    return toPlainObject(user);
-  } catch (error: any) {
-    console.error("[createUser] Error creating user:", error);
-    console.error("[createUser] Error details:", {
-      message: error?.message,
-      stack: error?.stack,
-      name: error?.name,
-    });
-    throw error;
+  // תמיד להגדיר clubId אם זה לא מנהל
+  if (clubId) {
+    userData.clubId = clubId;
   }
+
+  const user = await User.create(userData);
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return JSON.parse(JSON.stringify(user));
 }
 
 export async function createGame(
@@ -175,7 +139,7 @@ export async function createGame(
 ) {
   await connectDB();
 
-  // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום מספיק
+  // בדיקה במוד קופה משותפת - האם יש מספיק זיטונים בקופה לכל שחקן
   if (clubId) {
     const club = await Club.findById(clubId);
     if (club?.gameMode === "shared_bankroll") {
@@ -185,29 +149,21 @@ export async function createGame(
       }
 
       for (const playerId of playerIds) {
-        const user = await User.findById(playerId);
-        if (!user) throw new Error(`שחקן ${playerId} לא נמצא`);
-
-        const playerBankroll = clubBankroll.players.find(
-          (p) => p.userId.toString() === playerId
-        );
-        const currentBankroll = playerBankroll?.balance || 0;
-
-        // במצב קופה משותפת - לא ניתן להוסיף שחקן ללא כסף מוטען
-        if (currentBankroll === 0) {
-          throw new Error(
-            `לא ניתן להוסיף את ${user.name} למשחק במצב קופה משותפת ללא כסף מוטען. נא להטעין כסף לשחקן תחילה.`
-          );
-        }
-
         const initialBuyIn = initialBuyIns[playerId] || 0;
-        // אם מנסים להכניס כסף ראשוני, צריך לבדוק שיש מספיק
         if (initialBuyIn > 0) {
+          const user = await User.findById(playerId);
+          if (!user) throw new Error(`שחקן ${playerId} לא נמצא`);
+
+          const playerBankroll = clubBankroll.players.find(
+            (p) => p.userId.toString() === playerId
+          );
+          const currentBankroll = playerBankroll?.balance || 0;
+
           if (initialBuyIn > currentBankroll) {
             throw new Error(
               `לשחקן ${
                 user.name
-              } אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${initialBuyIn.toLocaleString()} זיטונים. ניתן להכניס עד ${currentBankroll.toLocaleString()} זיטונים.`
+              } אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${initialBuyIn.toLocaleString()} זיטונים`
             );
           }
         }
@@ -241,17 +197,9 @@ export async function createGame(
     isCashedOut: false,
   }));
 
-  // קביעת מצב הקופה המשותפת לפי מצב המועדון
-  let isSharedBankroll = false;
-  if (clubId) {
-    const club = await Club.findById(clubId).select("gameMode").lean();
-    isSharedBankroll = club?.gameMode === "shared_bankroll";
-  }
-
   const gameData: any = {
     players,
     isActive: true,
-    isSharedBankroll, // שמירת מצב הקופה המשותפת במשחק
   };
   if (clubId) {
     gameData.clubId = clubId;
@@ -271,36 +219,6 @@ export async function getActiveGame(clubId?: string) {
   const game = await GameSession.findOne(query)
     .populate("players.userId")
     .lean();
-
-  if (!game) {
-    return null;
-  }
-
-  // אם זה מוד קופה משותפת, נטען את היתרות מהקופה המשותפת
-  if (clubId && game.players) {
-    const club = await Club.findById(clubId).lean();
-    if (club?.gameMode === "shared_bankroll") {
-      const clubBankroll = await ClubBankroll.findOne({ clubId }).lean();
-      if (clubBankroll) {
-        // עדכון bankroll לכל שחקן מה-ClubBankroll
-        game.players.forEach((player: any) => {
-          if (player.userId) {
-            // אחרי populate, userId הוא אובייקט User עם _id
-            const userIdString =
-              player.userId._id?.toString() || player.userId.toString();
-
-            const playerBankroll = clubBankroll.players.find(
-              (p: any) => p.userId.toString() === userIdString
-            );
-
-            // עדכון bankroll על האובייקט User
-            player.userId.bankroll = playerBankroll?.balance || 0;
-          }
-        });
-      }
-    }
-  }
-
   return JSON.parse(JSON.stringify(game));
 }
 
@@ -331,29 +249,26 @@ export async function requestBuyIn(
   });
   if (!player) throw new Error("Player not found in this game");
 
-  // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום הכולל לא עולה על המוטען
-  const isSharedBankroll =
-    game.isSharedBankroll ||
-    (game.clubId &&
-      (await Club.findById(game.clubId))?.gameMode === "shared_bankroll");
+  // בדיקה במוד קופה משותפת - האם יש מספיק זיטונים בקופה
+  if (game.clubId) {
+    const club = await Club.findById(game.clubId);
+    if (club?.gameMode === "shared_bankroll") {
+      const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
+      if (!clubBankroll) {
+        throw new Error("קופה משותפת לא נמצאה");
+      }
 
-  if (isSharedBankroll && game.clubId) {
-    const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
-    if (!clubBankroll) {
-      throw new Error("קופה משותפת לא נמצאה");
-    }
-
-    const playerBankroll = clubBankroll.players.find(
-      (p) => p.userId.toString() === userId
-    );
-    const currentBankroll = playerBankroll?.balance || 0;
-    const totalAfterRequest = (player.totalApprovedBuyIn || 0) + amount;
-
-    // בדיקה שהסכום הכולל (כולל הכניסות הקודמות) לא עולה על הכסף המוטען
-    if (totalAfterRequest > currentBankroll) {
-      throw new Error(
-        `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, סכום כולל מבוקש: ${totalAfterRequest.toLocaleString()} זיטונים. ניתן להכניס עד ${currentBankroll.toLocaleString()} זיטונים בסך הכל.`
+      const playerBankroll = clubBankroll.players.find(
+        (p) => p.userId.toString() === userId
       );
+      const currentBankroll = playerBankroll?.balance || 0;
+      const totalAfterRequest = (player.totalApprovedBuyIn || 0) + amount;
+
+      if (totalAfterRequest > currentBankroll) {
+        throw new Error(
+          `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${totalAfterRequest.toLocaleString()} זיטונים`
+        );
+      }
     }
   }
 
@@ -378,29 +293,12 @@ export async function requestBuyIn(
           .select("adminEmail")
           .lean();
         adminEmail = club?.adminEmail;
-        console.log(
-          `[requestBuyIn] Club ID: ${game.clubId}, Admin email from DB: ${
-            adminEmail || "undefined/null"
-          }`
-        );
-      } else {
-        console.log(`[requestBuyIn] No clubId found in game`);
       }
-      console.log(
-        `[requestBuyIn] Calling sendBuyInRequestEmail - User: ${user.name}, Amount: ${amount}`
-      );
       await sendBuyInRequestEmail(user.name, amount, adminEmail);
-      console.log(`[requestBuyIn] Email send completed`);
-    } else {
-      console.log(`[requestBuyIn] User not found, skipping email send`);
     }
-  } catch (error: any) {
+  } catch (error) {
     // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
-    console.error("[requestBuyIn] Error sending buy-in request email:", error);
-    console.error(`[requestBuyIn] Error details:`, {
-      message: error?.message,
-      stack: error?.stack,
-    });
+    console.error("Error sending buy-in request email:", error);
   }
 
   revalidatePath(`/game/${gameId}`);
@@ -431,30 +329,27 @@ export async function approveRequest(
 
   if (request.status !== "pending") return;
 
-  // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום הכולל לא עולה על המוטען
-  const isSharedBankroll =
-    game.isSharedBankroll ||
-    (game.clubId &&
-      (await Club.findById(game.clubId))?.gameMode === "shared_bankroll");
+  // בדיקה במוד קופה משותפת - האם יש מספיק זיטונים בקופה
+  if (game.clubId) {
+    const club = await Club.findById(game.clubId);
+    if (club?.gameMode === "shared_bankroll") {
+      const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
+      if (!clubBankroll) {
+        throw new Error("קופה משותפת לא נמצאה");
+      }
 
-  if (isSharedBankroll && game.clubId) {
-    const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
-    if (!clubBankroll) {
-      throw new Error("קופה משותפת לא נמצאה");
-    }
-
-    const playerBankroll = clubBankroll.players.find(
-      (p) => p.userId.toString() === userId
-    );
-    const currentBankroll = playerBankroll?.balance || 0;
-    const totalAfterApproval =
-      (player.totalApprovedBuyIn || 0) + request.amount;
-
-    // בדיקה שהסכום הכולל (כולל הכניסות הקודמות) לא עולה על הכסף המוטען
-    if (totalAfterApproval > currentBankroll) {
-      throw new Error(
-        `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, סכום כולל מבוקש: ${totalAfterApproval.toLocaleString()} זיטונים. ניתן לאשר עד ${currentBankroll.toLocaleString()} זיטונים בסך הכל.`
+      const playerBankroll = clubBankroll.players.find(
+        (p) => p.userId.toString() === userId
       );
+      const currentBankroll = playerBankroll?.balance || 0;
+      const totalAfterApproval =
+        (player.totalApprovedBuyIn || 0) + request.amount;
+
+      if (totalAfterApproval > currentBankroll) {
+        throw new Error(
+          `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${totalAfterApproval.toLocaleString()} זיטונים`
+        );
+      }
     }
   }
 
@@ -510,33 +405,26 @@ export async function adminAddBuyIn(
   });
   if (!player) throw new Error("Player not found");
 
-  // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום הכולל לא עולה על המוטען
-  const isSharedBankroll =
-    game.isSharedBankroll ||
-    (game.clubId &&
-      (await Club.findById(game.clubId))?.gameMode === "shared_bankroll");
+  // בדיקה במוד קופה משותפת - האם יש מספיק זיטונים בקופה
+  if (game.clubId) {
+    const club = await Club.findById(game.clubId);
+    if (club?.gameMode === "shared_bankroll") {
+      const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
+      if (!clubBankroll) {
+        throw new Error("קופה משותפת לא נמצאה");
+      }
 
-  if (isSharedBankroll && game.clubId) {
-    const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
-    if (!clubBankroll) {
-      throw new Error("קופה משותפת לא נמצאה");
-    }
-
-    const playerBankroll = clubBankroll.players.find(
-      (p) => p.userId.toString() === userId
-    );
-    const currentBankroll = playerBankroll?.balance || 0;
-    const alreadyInGame = player.totalApprovedBuyIn || 0;
-    const totalAfterAdd = alreadyInGame + amount;
-    const availableToAdd = currentBankroll - alreadyInGame;
-
-    // בדיקה שהסכום הכולל (כולל הכניסות הקודמות) לא עולה על הכסף המוטען
-    if (totalAfterAdd > currentBankroll) {
-      const user = await User.findById(userId);
-      const userName = user?.name || "השחקן";
-      throw new Error(
-        `אין מספיק זיטונים בקופה המשותפת עבור ${userName}. יתרה בקופה: ${currentBankroll.toLocaleString()} זיטונים, כבר במשחק: ${alreadyInGame.toLocaleString()} זיטונים, ניתן להוסיף עד ${availableToAdd.toLocaleString()} זיטונים נוספים.`
+      const playerBankroll = clubBankroll.players.find(
+        (p) => p.userId.toString() === userId
       );
+      const currentBankroll = playerBankroll?.balance || 0;
+      const totalAfterAdd = (player.totalApprovedBuyIn || 0) + amount;
+
+      if (totalAfterAdd > currentBankroll) {
+        throw new Error(
+          `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${totalAfterAdd.toLocaleString()} זיטונים`
+        );
+      }
     }
   }
 
@@ -894,9 +782,8 @@ export async function cashOutPlayer(
 
   await game.save();
 
-  // הערה: במצב קופה משותפת, יציאה מהמשחק (cashOut) לא משפיעה על הקופה המשותפת
-  // הקופה תתעדכן רק בסיום המשחק (endGame) לפי הרווח/הפסד הסופי
-  // משיכת כסף מהקופה (withdrawFromBankroll) היא הפעולה היחידה שמורידה מהקופה
+  // לא מעדכנים globalBalance כאן - זה יתעדכן רק בסיום המשחק (endGame)
+  // כדי למנוע עדכונים חלקיים במהלך המשחק
 
   revalidatePath("/admin");
 }
@@ -1067,175 +954,65 @@ export async function addPlayerToGame(
   userId: string,
   initialBuyIn: number
 ) {
-  try {
-    // Convert gameId to string if it's an ObjectId
-    const gameIdString =
-      typeof gameId === "string"
-        ? gameId
-        : (gameId as any)?.toString() || String(gameId);
-    const userIdString =
-      typeof userId === "string"
-        ? userId
-        : (userId as any)?.toString() || String(userId);
+  await connectDB();
+  const game = await GameSession.findById(gameId);
+  if (!game) throw new Error("Game not found");
+  if (!game.isActive) throw new Error("Game is not active");
 
-    console.log(
-      `[addPlayerToGame] Starting - GameId: ${gameIdString}, UserId: ${userIdString}, InitialBuyIn: ${initialBuyIn}`
-    );
-
-    await connectDB();
-
-    const game = await GameSession.findById(gameIdString);
-    if (!game) {
-      console.error(`[addPlayerToGame] Game not found: ${gameIdString}`);
-      throw new Error("Game not found");
-    }
-
-    if (!game.isActive) {
-      console.error(`[addPlayerToGame] Game is not active: ${gameIdString}`);
-      throw new Error("Game is not active");
-    }
-
-    console.log(
-      `[addPlayerToGame] Game found - Active: ${game.isActive}, ClubId: ${game.clubId}`
-    );
-
-    // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום מספיק
-    const clubIdString = game.clubId
-      ? typeof game.clubId === "string"
-        ? game.clubId
-        : game.clubId.toString()
-      : null;
-    let isSharedBankroll = game.isSharedBankroll;
-
-    if (!isSharedBankroll && clubIdString) {
-      const club = await Club.findById(clubIdString).lean();
-      isSharedBankroll = club?.gameMode === "shared_bankroll";
-      console.log(
-        `[addPlayerToGame] Club check - ClubId: ${clubIdString}, GameMode: ${club?.gameMode}, IsSharedBankroll: ${isSharedBankroll}`
-      );
-    }
-
-    if (isSharedBankroll && clubIdString) {
-      console.log(
-        `[addPlayerToGame] Checking ClubBankroll for clubId: ${clubIdString}`
-      );
-      const clubBankroll = await ClubBankroll.findOne({ clubId: clubIdString });
+  // בדיקה במוד קופה משותפת - האם יש מספיק זיטונים בקופה
+  if (game.clubId) {
+    const club = await Club.findById(game.clubId);
+    if (club?.gameMode === "shared_bankroll") {
+      const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
       if (!clubBankroll) {
-        console.error(
-          `[addPlayerToGame] ClubBankroll not found for clubId: ${clubIdString}`
-        );
         throw new Error("קופה משותפת לא נמצאה");
       }
 
       const playerBankroll = clubBankroll.players.find(
-        (p) => p.userId.toString() === userIdString
+        (p) => p.userId.toString() === userId
       );
       const currentBankroll = playerBankroll?.balance || 0;
 
-      console.log(
-        `[addPlayerToGame] Bankroll check - UserId: ${userIdString}, CurrentBankroll: ${currentBankroll}, InitialBuyIn: ${initialBuyIn}`
-      );
-
-      // אם אין כסף מוטען בכלל, לא ניתן להוסיף את השחקן
-      if (currentBankroll === 0) {
-        // קבלת שם השחקן להודעה
-        const user = await User.findById(userIdString);
-        const userName = user?.name || "השחקן";
-
-        throw new Error(
-          `❌ לא ניתן להוסיף את ${userName} למשחק\n\n` +
-            `הסיבה: אין יתרה בקופה המשותפת\n` +
-            `יתרה נוכחית: 0 זיטונים\n\n` +
-            `📝 פתרון: נא להטעין כסף לשחקן בקופה המשותפת דרך דף ניהול הקופה לפני הוספתו למשחק.`
-        );
-      }
-
-      // בדיקה שהסכום המבוקש לא עולה על הכסף המוטען
       if (initialBuyIn > currentBankroll) {
-        // קבלת שם השחקן להודעה
-        const user = await User.findById(userIdString);
-        const userName = user?.name || "השחקן";
-
         throw new Error(
-          `❌ לא ניתן להוסיף את ${userName} למשחק\n\n` +
-            `הסיבה: אין מספיק יתרה בקופה המשותפת\n` +
-            `יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים\n` +
-            `סכום מבוקש: ${initialBuyIn.toLocaleString()} זיטונים\n` +
-            `חסר: ${(
-              initialBuyIn - currentBankroll
-            ).toLocaleString()} זיטונים\n\n` +
-            `📝 פתרון: נא להטעין כסף נוסף לשחקן בקופה המשותפת או להקטין את סכום הכניסה הראשונית.`
+          `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${initialBuyIn.toLocaleString()} זיטונים`
         );
       }
     }
-
-    // Check if player already in game
-    const existingPlayer = game.players.find((p: any) => {
-      const playerId = p.userId._id
-        ? p.userId._id.toString()
-        : p.userId.toString();
-      return playerId === userIdString;
-    });
-
-    if (existingPlayer) {
-      console.error(
-        `[addPlayerToGame] Player already in game - UserId: ${userIdString}`
-      );
-      throw new Error("Player already in game");
-    }
-
-    console.log(
-      `[addPlayerToGame] Adding player to game - UserId: ${userIdString}, InitialBuyIn: ${initialBuyIn}`
-    );
-
-    // Add new player
-    game.players.push({
-      userId: new mongoose.Types.ObjectId(userIdString),
-      totalApprovedBuyIn: initialBuyIn,
-      buyInRequests:
-        initialBuyIn > 0
-          ? [
-              {
-                amount: initialBuyIn,
-                status: "approved" as const,
-                timestamp: new Date(),
-                isInitial: true,
-                addedBy: "admin" as const,
-              },
-            ]
-          : [],
-      cashOut: 0,
-      netProfit: 0,
-      isCashedOut: false,
-    });
-
-    await game.save();
-    console.log(
-      `[addPlayerToGame] Player added successfully - GameId: ${gameIdString}, UserId: ${userIdString}`
-    );
-
-    revalidatePath("/admin");
-    revalidatePath("/admin/games");
-    revalidatePath(`/game/${gameIdString}`);
-
-    return { success: true };
-  } catch (error: any) {
-    console.error("[addPlayerToGame] Error:", error);
-    console.error("[addPlayerToGame] Error details:", {
-      message: error?.message,
-      stack: error?.stack,
-      gameId:
-        typeof gameId === "string"
-          ? gameId
-          : (gameId as any)?.toString() || String(gameId),
-      userId:
-        typeof userId === "string"
-          ? userId
-          : (userId as any)?.toString() || String(userId),
-      initialBuyIn,
-    });
-    throw error;
   }
+
+  // Check if player already in game
+  const existingPlayer = game.players.find((p: any) => {
+    const playerId = p.userId._id
+      ? p.userId._id.toString()
+      : p.userId.toString();
+    return playerId === userId;
+  });
+  if (existingPlayer) throw new Error("Player already in game");
+
+  // Add new player
+  game.players.push({
+    userId: new mongoose.Types.ObjectId(userId),
+    totalApprovedBuyIn: initialBuyIn,
+    buyInRequests:
+      initialBuyIn > 0
+        ? [
+            {
+              amount: initialBuyIn,
+              status: "approved" as const,
+              timestamp: new Date(),
+              isInitial: true,
+              addedBy: "admin" as const,
+            },
+          ]
+        : [],
+    cashOut: 0,
+    netProfit: 0,
+    isCashedOut: false,
+  });
+
+  await game.save();
+  revalidatePath("/admin");
 }
 
 export async function setPlayerPassword(userId: string, password: string) {
@@ -1569,11 +1346,7 @@ async function getOrCreateClubBankroll(clubId: string) {
     return newBankroll;
   }
 
-  const foundBankroll = await ClubBankroll.findById(clubBankroll._id);
-  if (!foundBankroll) {
-    throw new Error("קופה משותפת לא נמצאה");
-  }
-  return foundBankroll;
+  return await ClubBankroll.findById(clubBankroll._id);
 }
 
 /**
@@ -1595,8 +1368,6 @@ export async function getPlayerBankrollBalance(
 
 /**
  * הפקדת זיטונים לקופה משותפת (רכישה בשקלים)
- * במצב קופה משותפת: מוסיף כסף לקופה המשותפת של השחקן
- * הערה: הכנסת כסף למשחק לא מורידה מהקופה, רק בודקת שיש מספיק כסף
  */
 export async function depositToBankroll(
   userId: string,
@@ -1637,15 +1408,11 @@ export async function depositToBankroll(
     await user.save();
     revalidatePath("/profile");
     revalidatePath("/admin");
-    revalidatePath("/admin/bankroll");
     return;
   }
 
   // מוד קופה משותפת - עבודה עם ClubBankroll
   const clubBankroll = await getOrCreateClubBankroll(user.clubId.toString());
-  if (!clubBankroll) {
-    throw new Error("קופה משותפת לא נמצאה");
-  }
   const chipsPerShekel = await getChipsPerShekel(user.clubId.toString());
   const chipsAmount = amountInShekels * chipsPerShekel;
 
@@ -1689,14 +1456,11 @@ export async function depositToBankroll(
 
   revalidatePath("/profile");
   revalidatePath("/admin");
-  revalidatePath("/admin/bankroll");
   revalidatePath("/");
 }
 
 /**
  * משיכת זיטונים מהקופה (המרה לשקלים)
- * במצב קופה משותפת: מוריד כסף מהקופה המשותפת של השחקן ומהקופה הכללית
- * הערה: זו הפעולה היחידה שמורידה מהקופה המשותפת (לא יציאה מהמשחק או סיום משחק)
  */
 export async function withdrawFromBankroll(
   userId: string,
@@ -1796,403 +1560,7 @@ export async function withdrawFromBankroll(
 }
 
 /**
- * בקשת טעינת כסף לקופה משותפת
- * יוצרת בקשה ושולחת מייל למנהל עם קישור לאישור
- */
-export async function requestDeposit(amountInShekels: number) {
-  await connectDB();
-  const sessionCookie = (await cookies()).get("player_session");
-  if (!sessionCookie) {
-    throw new Error("נא להתחבר תחילה");
-  }
-
-  const user = await User.findById(sessionCookie.value);
-  if (!user) {
-    throw new Error("שחקן לא נמצא");
-  }
-
-  if (!user.clubId) {
-    throw new Error("שחקן לא משויך למועדון");
-  }
-
-  const club = await Club.findById(user.clubId);
-  if (!club) {
-    throw new Error("מועדון לא נמצא");
-  }
-
-  if (club.gameMode !== "shared_bankroll") {
-    throw new Error("בקשת טעינה זמינה רק במצב קופה משותפת");
-  }
-
-  if (amountInShekels <= 0) {
-    throw new Error("נא להזין סכום תקין");
-  }
-
-  // יצירת בקשה חדשה
-  const depositRequest = await DepositRequest.create({
-    userId: user._id,
-    clubId: user.clubId,
-    amountInShekels,
-    status: "pending",
-  });
-
-  // שליחת מייל למנהל
-  try {
-    console.log(
-      `[requestDeposit] Preparing to send email - User: ${
-        user.name
-      }, Amount: ${amountInShekels}, RequestId: ${depositRequest._id.toString()}`
-    );
-    console.log(
-      `[requestDeposit] Club admin email: ${club.adminEmail || "undefined"}`
-    );
-    await sendDepositRequestEmail(
-      user.name,
-      amountInShekels,
-      depositRequest._id.toString(),
-      club.adminEmail
-    );
-    console.log(`[requestDeposit] Email send completed`);
-  } catch (error: any) {
-    console.error(
-      "[requestDeposit] Error sending deposit request email:",
-      error
-    );
-    console.error(`[requestDeposit] Error details:`, {
-      message: error?.message,
-      stack: error?.stack,
-    });
-    // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
-  }
-
-  revalidatePath("/profile");
-  return { success: true, requestId: depositRequest._id.toString() };
-}
-
-/**
- * קבלת בקשות טעינה ממתינות למועדון
- */
-export async function getPendingDepositRequests(clubId: string) {
-  await connectDB();
-  const requests = await DepositRequest.find({
-    clubId,
-    status: "pending",
-  })
-    .populate("userId")
-    .sort({ createdAt: -1 })
-    .lean();
-  return JSON.parse(JSON.stringify(requests));
-}
-
-/**
- * אישור בקשה לטעינת כסף
- */
-export async function approveDepositRequest(requestId: string) {
-  await connectDB();
-  const depositRequest = await DepositRequest.findById(requestId);
-
-  if (!depositRequest) {
-    throw new Error("בקשה לא נמצאה");
-  }
-
-  if (depositRequest.status !== "pending") {
-    throw new Error(
-      `הבקשה כבר ${depositRequest.status === "approved" ? "אושרה" : "נדחתה"}`
-    );
-  }
-
-  // אישור הבקשה וביצוע הטעינה
-  depositRequest.status = "approved";
-  depositRequest.approvedAt = new Date();
-  await depositRequest.save();
-
-  // ביצוע הטעינה
-  await depositToBankroll(
-    depositRequest.userId.toString(),
-    depositRequest.amountInShekels
-  );
-
-  revalidatePath("/profile");
-  revalidatePath("/admin");
-  revalidatePath("/admin/bankroll");
-
-  return { success: true };
-}
-
-/**
- * בקשת שחקן להצטרף למשחק פעיל
- * יוצרת בקשה ושולחת מייל למנהל
- */
-export async function requestJoinGame(gameId: string, amount: number) {
-  await connectDB();
-  const sessionCookie = (await cookies()).get("player_session");
-  if (!sessionCookie) {
-    throw new Error("נא להתחבר תחילה");
-  }
-
-  const user = await User.findById(sessionCookie.value);
-  if (!user) {
-    throw new Error("שחקן לא נמצא");
-  }
-
-  if (!user.clubId) {
-    throw new Error("שחקן לא משויך למועדון");
-  }
-
-  const game = await GameSession.findById(gameId);
-  if (!game) {
-    throw new Error("משחק לא נמצא");
-  }
-
-  if (!game.isActive) {
-    throw new Error("המשחק לא פעיל");
-  }
-
-  // בדיקה שהשחקן לא כבר במשחק
-  const existingPlayer = game.players.find((p: any) => {
-    const playerId = p.userId._id
-      ? p.userId._id.toString()
-      : p.userId.toString();
-    return playerId === user._id.toString();
-  });
-
-  if (existingPlayer) {
-    throw new Error("אתה כבר משתתף במשחק זה");
-  }
-
-  // בדיקה במוד קופה משותפת - האם יש כסף מוטען ושהסכום מספיק
-  const isSharedBankroll =
-    game.isSharedBankroll ||
-    (game.clubId &&
-      (await Club.findById(game.clubId))?.gameMode === "shared_bankroll");
-
-  if (isSharedBankroll && game.clubId) {
-    const clubBankroll = await ClubBankroll.findOne({ clubId: game.clubId });
-    if (!clubBankroll) {
-      throw new Error("קופה משותפת לא נמצאה");
-    }
-
-    const playerBankroll = clubBankroll.players.find(
-      (p) => p.userId.toString() === user._id.toString()
-    );
-    const currentBankroll = playerBankroll?.balance || 0;
-
-    // אם אין כסף מוטען בכלל, לא ניתן לבקש להצטרף
-    if (currentBankroll === 0) {
-      throw new Error(
-        "לא ניתן להצטרף למשחק במצב קופה משותפת ללא כסף מוטען. נא להטעין כסף תחילה."
-      );
-    }
-
-    // בדיקה שהסכום המבוקש לא עולה על הכסף המוטען
-    if (amount > currentBankroll) {
-      throw new Error(
-        `אין מספיק זיטונים בקופה. יתרה נוכחית: ${currentBankroll.toLocaleString()} זיטונים, נדרש: ${amount.toLocaleString()} זיטונים`
-      );
-    }
-  }
-
-  if (amount <= 0) {
-    throw new Error("נא להזין סכום תקין");
-  }
-
-  // יצירת בקשה חדשה
-  const joinRequest = await JoinGameRequest.create({
-    userId: user._id,
-    gameId: game._id,
-    clubId: user.clubId,
-    amount,
-    status: "pending",
-  });
-
-  // שליחת מייל למנהל
-  try {
-    console.log(
-      `[requestJoinGame] Preparing to send email - User: ${user.name}, Amount: ${amount}, GameId: ${gameId}`
-    );
-    const club = await Club.findById(user.clubId).lean();
-    console.log(
-      `[requestJoinGame] Club found: ${club ? "YES" : "NO"}, Admin email: ${
-        club?.adminEmail || "undefined"
-      }`
-    );
-    await sendJoinGameRequestEmail(user.name, amount, gameId, club?.adminEmail);
-    console.log(`[requestJoinGame] Email send completed`);
-  } catch (error: any) {
-    console.error(
-      "[requestJoinGame] Error sending join game request email:",
-      error
-    );
-    console.error(`[requestJoinGame] Error details:`, {
-      message: error?.message,
-      stack: error?.stack,
-    });
-    // לא נזרוק שגיאה כדי לא לעצור את תהליך הבקשה
-  }
-
-  revalidatePath("/");
-  revalidatePath(`/game/${gameId}`);
-  return { success: true, requestId: joinRequest._id.toString() };
-}
-
-/**
- * קבלת בקשות הצטרפות ממתינות למשחק
- */
-export async function getPendingJoinGameRequests(gameId: string) {
-  await connectDB();
-  const requests = await JoinGameRequest.find({
-    gameId,
-    status: "pending",
-  })
-    .populate("userId")
-    .sort({ createdAt: -1 })
-    .lean();
-  return JSON.parse(JSON.stringify(requests));
-}
-
-/**
- * בדיקה אם יש בקשה ממתינה למשתמש ספציפי במשחק
- */
-export async function getUserPendingJoinRequest(
-  gameId: string,
-  userId: string
-) {
-  await connectDB();
-  const request = await JoinGameRequest.findOne({
-    gameId,
-    userId,
-    status: "pending",
-  })
-    .populate("userId")
-    .lean();
-  return request ? JSON.parse(JSON.stringify(request)) : null;
-}
-
-/**
- * בדיקה אם יש בקשה ממתינה לכניסה נוספת למשתמש במשחק
- */
-export async function getUserPendingBuyInRequest(
-  gameId: string,
-  userId: string
-) {
-  await connectDB();
-  const game = await GameSession.findById(gameId).lean();
-  if (!game) return null;
-
-  const player = game.players.find((p: any) => {
-    const playerId = p.userId._id
-      ? p.userId._id.toString()
-      : p.userId.toString();
-    return playerId === userId;
-  });
-
-  if (!player) return null;
-
-  // מציאת בקשה ממתינה
-  const pendingRequest = player.buyInRequests?.find(
-    (r: any) => r.status === "pending"
-  );
-
-  return pendingRequest ? JSON.parse(JSON.stringify(pendingRequest)) : null;
-}
-
-/**
- * אישור בקשה להצטרפות למשחק
- */
-export async function approveJoinGameRequest(requestId: string) {
-  await connectDB();
-  const joinRequest = await JoinGameRequest.findById(requestId)
-    .populate("userId")
-    .populate("gameId");
-
-  if (!joinRequest) {
-    throw new Error("בקשה לא נמצאה");
-  }
-
-  if (joinRequest.status !== "pending") {
-    throw new Error(
-      `הבקשה כבר ${joinRequest.status === "approved" ? "אושרה" : "נדחתה"}`
-    );
-  }
-
-  const game = joinRequest.gameId as any;
-  if (!game.isActive) {
-    throw new Error("המשחק לא פעיל");
-  }
-
-  // אישור הבקשה והוספת השחקן למשחק
-  joinRequest.status = "approved";
-  joinRequest.approvedAt = new Date();
-  await joinRequest.save();
-
-  // הוספת השחקן למשחק
-  await addPlayerToGame(
-    game._id.toString(),
-    (joinRequest.userId as any)._id.toString(),
-    joinRequest.amount
-  );
-
-  revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/games");
-  revalidatePath(`/game/${game._id}`);
-
-  return { success: true };
-}
-
-/**
- * קבלת כל הבקשות הממתינות למועדון (להצגת התראות)
- */
-export async function getAllPendingRequests(clubId: string) {
-  await connectDB();
-
-  const [depositRequests, activeGame] = await Promise.all([
-    getPendingDepositRequests(clubId),
-    getActiveGame(clubId),
-  ]);
-
-  let joinGameRequests: any[] = [];
-  let buyInRequests: any[] = [];
-
-  if (activeGame) {
-    const gameIdString =
-      typeof activeGame._id === "string"
-        ? activeGame._id
-        : activeGame._id?.toString() || "";
-
-    // בקשות הצטרפות למשחק
-    joinGameRequests = await getPendingJoinGameRequests(gameIdString);
-
-    // בקשות כניסה נוספת (buy-in requests)
-    if (activeGame.players) {
-      buyInRequests = activeGame.players.flatMap((p: any) =>
-        (p.buyInRequests || [])
-          .filter((r: any) => r.status === "pending")
-          .map((r: any) => ({
-            ...r,
-            playerId: p.userId._id?.toString() || p.userId.toString(),
-            playerName: p.userId.name || "שחקן",
-            gameId: gameIdString,
-          }))
-      );
-    }
-  }
-
-  return {
-    depositRequests: depositRequests || [],
-    joinGameRequests: joinGameRequests || [],
-    buyInRequests: buyInRequests || [],
-    totalCount:
-      (depositRequests?.length || 0) +
-      (joinGameRequests?.length || 0) +
-      (buyInRequests?.length || 0),
-  };
-}
-
-/**
  * עדכון קופה אחרי משחק (רווח/הפסד)
- * במצב קופה משותפת: מוסיף את הרווח/הפסד לקופה המשותפת של השחקן
- * הערה: הכנסת כסף למשחק לא מורידה מהקופה, רק סיום המשחק מעדכן את הקופה לפי הרווח/הפסד
  */
 export async function updateBankrollAfterGame(
   userId: string,
